@@ -1,0 +1,14 @@
+MUSICAS EXTRAS
+==============
+1. Coloque aqui os arquivos de musica (mp3, m4a ou ogg).
+2. Edite o arquivo extras.json e liste cada musica, assim:
+
+[
+  { "name": "Caneta Azul", "file": "caneta-azul.mp3", "emoji": "🖊️" },
+  { "name": "Voce nao vale nada", "file": "voce-nao-vale-nada.mp3", "emoji": "😤" }
+]
+
+3. Recarregue o site (Ctrl+F5). As musicas aparecem no seletor "Musica" em "Musicas extras".
+
+Obs.: use apenas musicas que voce tem direito de usar. Se publicar o site na internet, musicas com
+direitos autorais de terceiros podem ser removidas ou gerar problemas.

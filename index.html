@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0b0f1e">
+  <title>Jogo da Família</title>
+  <meta name="description" content="O duelo de cartas da família — jogue contra o computador ou online com quem você ama.">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=34">
+</head>
+<body>
+  <canvas id="sparks"></canvas>
+
+  <main id="app">
+    <!-- ============================== MENU -->
+    <section id="menu" class="screen active">
+      <div class="hero">
+        <div class="fan" id="hero-fan"></div>
+        <h1 class="logo"><small>Jogo da</small>Família</h1>
+        <p class="tagline">Duelos lendários na mesa de domingo</p>
+      </div>
+      <div class="menu-panel glass">
+        <div class="who">
+          <button class="avatar big" id="my-avatar" title="Trocar avatar"></button>
+          <label class="name-field">
+            <span>Seu nome</span>
+            <input id="player-name" maxlength="16" placeholder="Digite seu nome" autocomplete="off">
+          </label>
+        </div>
+        <div class="menu-grid">
+          <button class="btn gold big" data-go="solo"><i>🤖</i><b>Contra o Computador</b><small>Fácil ou Médio · offline</small></button>
+          <button class="btn gold big" data-go="online"><i>🌐</i><b>Jogar Online</b><small>Crie uma sala e mande o código</small></button>
+          <button class="btn big" data-go="tutorial"><i>📖</i><b>Tutorial</b><small>Aprenda em 3 minutos</small></button>
+          <button class="btn big" data-go="collection"><i>🃏</i><b>Coleção</b><small>Todas as 114 cartas</small></button>
+        </div>
+        <div class="menu-foot">
+          <button class="link" id="btn-rules">📜 Regras completas</button>
+          <button class="link" id="btn-sound">🔊 Som ligado</button>
+          <button class="link" id="btn-music">🎵 Música</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== SOLO -->
+    <section id="solo" class="screen">
+      <header class="screen-head"><button class="btn back" data-go="menu">← Voltar</button><h2>Contra o Computador</h2></header>
+      <div class="diff-grid">
+        <button class="diff glass" data-level="easy">
+          <div class="diff-art" style="--img:url(../assets/cards/personagens/29.webp)"></div>
+          <h3>Fácil</h3>
+          <p>O computador joga no improviso, ataca sem pensar muito e às vezes esquece de defender. Ótimo para aprender.</p>
+          <span class="stars">★☆☆</span>
+        </button>
+        <button class="diff glass" data-level="medium">
+          <div class="diff-art" style="--img:url(../assets/cards/personagens/56.webp)"></div>
+          <h3>Médio</h3>
+          <p>Planeja cada jogada, protege a Vida, escolhe bem os alvos e aproveita os efeitos das cartas.</p>
+          <span class="stars">★★☆</span>
+        </button>
+      </div>
+      <label class="toggle glass"><input type="checkbox" id="coach-toggle"><span></span> Mostrar dicas durante a partida (recomendado na primeira vez)</label>
+    </section>
+
+    <!-- ============================== ONLINE -->
+    <section id="online" class="screen">
+      <header class="screen-head"><button class="btn back" data-go="menu">← Voltar</button><h2>Jogar Online</h2></header>
+      <div class="online-grid">
+        <div class="glass online-card">
+          <h3>🏠 Criar sala</h3>
+          <p>Crie uma sala e envie o código (ou o link) para quem vai jogar com você.</p>
+          <button class="btn gold" id="btn-host">Criar sala</button>
+          <div id="host-box" class="host-box hidden">
+            <div class="room-code" id="room-code">····</div>
+            <div class="row gap">
+              <button class="btn small" id="btn-copy-code">Copiar código</button>
+              <button class="btn small" id="btn-copy-link">Copiar link</button>
+              <button class="btn small" id="btn-share">Compartilhar</button>
+            </div>
+            <p class="waiting"><span class="dots"></span> Aguardando o outro jogador entrar…</p>
+          </div>
+        </div>
+        <div class="glass online-card">
+          <h3>🚪 Entrar numa sala</h3>
+          <p>Digite o código que recebeu.</p>
+          <input id="join-code" class="code-input" maxlength="4" placeholder="ABCD" autocomplete="off">
+          <button class="btn gold" id="btn-join">Entrar</button>
+          <p class="net-status" id="join-status"></p>
+        </div>
+      </div>
+      <p class="online-note">A conexão é direta entre os dois aparelhos (WebRTC). Os dois precisam estar com internet e com este site aberto.</p>
+    </section>
+
+    <!-- ============================== TUTORIAL -->
+    <section id="tutorial" class="screen">
+      <header class="screen-head"><button class="btn back" data-go="menu">← Voltar</button><h2>Tutorial</h2><div class="tut-progress" id="tut-progress"></div></header>
+      <div class="tut-stage" id="tut-stage"></div>
+      <footer class="tut-nav">
+        <button class="btn" id="tut-prev">← Anterior</button>
+        <button class="btn gold" id="tut-next">Próximo →</button>
+      </footer>
+    </section>
+
+    <!-- ============================== COLEÇÃO -->
+    <section id="collection" class="screen">
+      <header class="screen-head"><button class="btn back" data-go="menu">← Voltar</button><h2>Coleção</h2></header>
+      <div class="col-tools">
+        <div class="tabs" id="col-tabs">
+          <button class="tab active" data-t="char">Personagens <b>72</b></button>
+          <button class="tab" data-t="sup">Suportes <b>24</b></button>
+          <button class="tab" data-t="ev">Eventos <b>18</b></button>
+        </div>
+        <input id="col-search" placeholder="🔎 Buscar carta ou efeito…" autocomplete="off">
+      </div>
+      <div class="chips" id="col-chips"></div>
+      <div class="col-grid" id="col-grid"></div>
+    </section>
+
+    <!-- ============================== JOGO -->
+    <section id="game" class="screen">
+      <aside class="g-side">
+        <div class="plate-slot" id="plate-1"></div>
+        <div class="event-box" id="event-box"></div>
+        <div class="decks" id="decks"></div>
+        <div class="log glass" id="log"></div>
+        <div class="plate-slot" id="plate-0"></div>
+      </aside>
+      <div class="g-board" id="board">
+        <div class="m-top">
+          <button class="icon-btn" id="btn-menu" title="Menu">☰</button><button class="icon-btn online-only voice-mic" title="Ligar microfone">🎤</button>
+          <div class="plate-slot compact" id="mplate-1"></div>
+          <button class="icon-btn" id="btn-event" title="Evento atual"></button>
+        </div>
+        <div class="opp-hand" id="opp-hand"></div>
+        <div class="field opp" id="field-1"></div>
+        <div class="midline" id="midline"></div>
+        <div id="event-big"></div>
+        <div class="field me" id="field-0"></div>
+        <div class="m-bottom"><div class="plate-slot compact" id="mplate-0"></div><button class="icon-btn" id="btn-log" title="Histórico">📜</button><button class="icon-btn" id="btn-music-m" title="Música">🎵</button><button class="icon-btn" id="btn-meme-m" title="Sons de meme">🎭</button><button class="icon-btn" id="btn-emote" title="Reações">😄</button></div>
+        <div class="hand" id="hand"></div>
+      </div>
+      <div class="g-corner">
+        <div class="mini-player" id="mini-player"><button data-mp="prev" title="Música anterior">⏮</button><button data-mp="toggle" title="Pausar / tocar">⏸</button><button data-mp="next" title="Próxima música">⏭</button></div>
+        <button class="icon-btn" id="btn-meme" title="Sons de meme">🎭</button>
+        <button class="icon-btn online-only voice-mic" title="Ligar microfone">🎤</button><button class="icon-btn online-only voice-hear" title="Ouvir o outro jogador">🔊</button>
+        <button class="icon-btn" id="btn-menu2" title="Menu">☰</button>
+        <button class="icon-btn" id="btn-emote2" title="Reações">😄</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal-root"></div>
+  <div id="toast-root"></div>
+  <div id="coach-root"></div>
+  <div id="fx-layer"></div>
+  <div id="preview" class="preview"></div>
+
+  <script src="js/vendor/peerjs.min.js"></script>
+  <script src="js/cards.js?v=34"></script>
+  <script src="js/engine.js?v=34"></script>
+  <script src="js/ai.js?v=34"></script>
+  <script src="js/sfx.js?v=34"></script>
+  <script src="js/music.js?v=34"></script>
+  <script src="js/memes.js?v=34"></script>
+  <script src="js/voice.js?v=34"></script>
+  <script src="js/ui.js?v=34"></script>
+  <script src="js/net.js?v=34"></script>
+  <script src="js/tutorial.js?v=34"></script>
+  <script src="js/main.js?v=34"></script>
+</body>
+</html>
