@@ -13,7 +13,7 @@
   // Regras ajustáveis (v4: energia que recarrega).
   G.RULES = {
     autoEvent: 3,        // o Evento troca sozinho a cada N rodadas completas (0 = desligado)
-    secondBonus: 'coin', // compensação do 2º jogador: 'coin' (⚡+1 só no 1º turno dele) | 'card' (1 Personagem extra) | 'none'
+    secondBonus: 'none', // compensação do 2º jogador: 'coin' (⚡+1 só no 1º turno dele) | 'card' (1 Personagem extra) | 'none'
     fatigueTurn: 80,     // a partir deste turno (global) quem abre o turno perde Vida (evita partidas eternas); 0 = desligado
     fatigueDmg: 3,
     supDrawEvery: 2,     // compra automática de 1 Suporte a cada N turnos do próprio jogador (0 = desligado)
@@ -81,6 +81,7 @@
   // ---------------------------------------------------------------- recursos
   function gainE(s, p, n) {
     const pl = s.players[p];
+    if (pl.turns <= 1) return 0; // no 1º turno de cada jogador só existe ⚡1: nenhum efeito dá energia extra
     const b = pl.energy;
     pl.energy = Math.min(G.ENERGY_MAX, pl.energy + n);
     const g = pl.energy - b;
@@ -348,6 +349,18 @@
       s.players[p].hand.push(s.supDeck.shift());
     }
     if (G.RULES.secondBonus === 'card') s.players[opp(s.first)].hand.push(s.charDeck.shift());
+    if (G.RULES.secondBonus === 'sup') s.players[opp(s.first)].hand.push(s.supDeck.shift());
+    // mão inicial jogável: todo jogador começa com pelo menos 1 Personagem de custo ⚡1 (no 1º turno só há ⚡1)
+    for (const p of [0, 1]) {
+      const h = s.players[p].hand;
+      if (h.some((c) => G.CARDS[c.id].type === 'char' && G.CARDS[c.id].cost <= 1)) continue;
+      const di = s.charDeck.findIndex((c) => G.CARDS[c.id].cost <= 1);
+      const hi = h.map((c, i) => i).filter((i) => G.CARDS[h[i].id].type === 'char').sort((a, b) => G.CARDS[h[b].id].cost - G.CARDS[h[a].id].cost)[0];
+      if (di < 0 || hi == null) continue;
+      const cheap = s.charDeck.splice(di, 1)[0];
+      const out = h.splice(hi, 1, cheap)[0];
+      s.charDeck.splice(Math.floor(rnd(s) * (s.charDeck.length + 1)), 0, out);
+    }
     s.queue.push({ k: 'setupDone' });
     run(s);
     return s;

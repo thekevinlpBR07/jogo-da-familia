@@ -31,9 +31,9 @@
     },
     {
       t: 'Preparação',
-      body: `<ul><li>Cada jogador começa com <b>25 de vida</b> (1 ❤️ nas cartas = 5 pontos) e <b>⚡1</b> de energia no primeiro turno.</li>
-        <li>Compre <b>4 Personagens</b> e <b>1 Suporte</b> — sem escolher nem devolver nenhuma carta.</li>
-        <li>A partida começa <b>sem Evento</b>. O sorteio decide quem começa — e o <b>segundo jogador ganha uma moeda</b> (⚡+1 no primeiro turno dele) para compensar.</li>
+      body: `<ul><li>Cada jogador começa com <b>25 de vida</b> (1 ❤️ nas cartas = 5 pontos). No <b>primeiro turno de cada um só existe ⚡1</b> e nenhum efeito dá energia extra.</li>
+        <li>Compre <b>4 Personagens</b> e <b>1 Suporte</b> — sem escolher nem devolver. Sua mão sempre tem <b>pelo menos 1 Personagem de custo ⚡1</b>.</li>
+        <li>A partida começa <b>sem Evento</b>. O sorteio decide quem começa (as duas posições são equilibradas).</li>
         <li>Quem começa <b>não compra</b> carta no seu primeiro turno.</li></ul>`,
       vis: () => card('p13') + card('p22') + card('p49') + card('p25') + card('s03', 'outline:3px solid #3fbf7f'),
     },
@@ -56,7 +56,7 @@
         <ol><li><b>COMPRE</b> 1 Personagem (se tiver menos de 7 cartas).</li>
         <li><b>JOGUE</b> o que quiser com a sua energia: Personagens, Suportes, mover (⚡1), habilidades Ativáveis e comprar Suporte (⚡1). <b>Sem limite de cartas</b>, só de energia!</li>
         <li><b>ATAQUE</b> com cada Personagem pronto.</li>
-        <li><b>ENCERRE</b> o turno.</li></ol>
+        <li><b>ENCERRE</b> o turno — ou <b>pule</b> se não tiver nada para jogar (o botão vira "Pular turno").</li></ol>
         <p>⚡ <b>Energia que recarrega:</b> turno 1 = ⚡1, turno 2 = ⚡2... até ⚡10. Enche todo turno, e <b>o que sobrar se perde</b> — então vale gastar!</p>`,
       vis: () => `<div class="flow"><div class="step"><span>⚡1</span><b>Turno 1</b>1 de energia</div><span class="arrow">⬇</span><div class="step"><span>⚡5</span><b>Turno 5</b>5 de energia</div><span class="arrow">⬇</span><div class="step"><span>⚡10</span><b>Turno 10+</b>sempre 10</div></div>`,
     },

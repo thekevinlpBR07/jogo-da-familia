@@ -82,7 +82,7 @@
   // [num, nome, custo, tipo, chave, texto]  tipo: imm = Imediato, perm = Permanente, perm1 = Permanente - uso único
   const S = [
     [1, 'Bill, o Fiscal do Portão', 3, 'perm', 'bill', 'No fim do seu turno, olhe as próximas 2 cartas de Personagem e coloque-as de volta na ordem que quiser.'],
-    [2, 'Fifinha: Quem Perder Passa o Controle', 4, 'imm', 'fifinha', 'Olhe os próximos 2 Personagens. Coloque 1 na mão e o outro no fundo. Respeite o limite da mão. Depois descarte esta carta.'],
+    [2, 'Fifinha: Quem Perder Passa o Controle', 6, 'imm', 'fifinha', 'Olhe os próximos 2 Personagens. Coloque 1 na mão e o outro no fundo. Respeite o limite da mão. Depois descarte esta carta.'],
     [3, 'Cafezinho Ressuscita-Defunto', 1, 'imm', 'cafezinho', 'Ganhe ⚡2. Depois descarte esta carta.'],
     [4, 'Água Gelada pra Pensar Melhor', 1, 'imm', 'agua', 'Olhe as próximas 2 cartas de Personagem e coloque-as de volta na ordem que quiser. Depois descarte esta carta.'],
     [5, 'Sofá do "Só Mais 5 Minutinhos"', 3, 'perm', 'sofa', 'Enquanto estiver ativo, no início do seu turno receba ⚡1 extra neste turno.'],
@@ -100,7 +100,7 @@
     [17, 'Porta dos Fundos Dimensional', 2, 'perm1', 'porta', 'Descarte esta carta para devolver 1 Personagem seu do campo para sua mão. Esse Personagem não pode ser jogado novamente neste turno.'],
     [18, 'Manual Oficial do "Não Valeu!"', 4, 'perm1', 'naovaleu', 'Quando um Personagem adversário fosse resolver um efeito Ao Entrar, descarte esta carta para cancelar aquele efeito.'],
     [19, 'Casa da Vó — Aqui Ninguém Morre', 4, 'perm1', 'casa', 'No início do seu turno, se estiver com ❤️1, descarte Casa da Vó para recuperar ❤️2.'],
-    [20, 'Churrasco do "Chega Mais Um!"', 5, 'imm', 'churrasco', 'Olhe os próximos 3 Personagens. Coloque 1 na mão e os outros 2 no fundo. Depois ganhe ⚡1 e descarte esta carta.'],
+    [20, 'Churrasco do "Chega Mais Um!"', 7, 'imm', 'churrasco', 'Olhe os próximos 3 Personagens. Coloque 1 na mão e os outros 2 no fundo. Depois ganhe ⚡1 e descarte esta carta.'],
     [21, 'Rinha... Quer Dizer, Arena dos Galos', 4, 'perm1', 'arena', 'Quando um Personagem seu em ⚔️ fosse derrotado em combate, descarte esta carta para devolvê-lo à sua mão em vez do descarte.'],
     [22, 'Poltrona do Chefe da Família', 6, 'imm', 'poltrona', 'Escolha 1: recupere ❤️2; ou compre até 2 Personagens, respeitando o limite da mão. Depois descarte esta carta.'],
     [23, 'Gambiarra 220V no 110V', 4, 'imm', 'g220', 'Ao jogar: escolha 1 Personagem da sua mão e jogue-o imediatamente pagando ⚡2 a menos. Depois descarte esta carta.'],
@@ -140,20 +140,20 @@
   P.forEach(([n, name, title, cost, atk, def, rar, fx, text, ecost, fla]) => {
     CARDS['p' + pad(n)] = {
       id: 'p' + pad(n), type: 'char', name, title, cost, atk, def, rarity: rar, rarityName: RAR[rar],
-      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=50'),
+      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=53'),
       activatable: /^act/.test(fx),
     };
   });
   S.forEach(([n, name, cost, kind, fx, text]) => {
     CARDS['s' + pad(n)] = {
       id: 's' + pad(n), type: 'sup', name, title: kind === 'imm' ? 'Imediato' : kind === 'perm' ? 'Permanente' : 'Permanente - uso único',
-      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=50'),
+      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=53'),
     };
   });
   E.forEach(([n, name, kind, fx, text]) => {
     CARDS['e' + pad(n)] = {
       id: 'e' + pad(n), type: 'ev', name, title: kind === 'imm' ? 'Evento Imediato' : 'Evento Contínuo',
-      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=50'),
+      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=53'),
     };
   });
 

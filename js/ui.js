@@ -752,6 +752,19 @@
     return 'não há alvo válido.';
   }
 
+  // pular o turno sozinho quando não há nenhuma jogada (opcional, no menu da partida)
+  let skipTimer = null, skipKey = '';
+  UI.autoSkip = () => { try { return localStorage.getItem('autoskip') === '1'; } catch (e) { return false; } };
+  UI.setAutoSkip = (on) => { try { localStorage.setItem('autoskip', on ? '1' : '0'); } catch (e) { /* ignora */ } };
+  function autoSkipCheck(nothing) {
+    if (!nothing || !UI.autoSkip() || !V || V.active !== me || V.pending || V.winner != null) { clearTimeout(skipTimer); skipTimer = null; skipKey = ''; return; }
+    const key = V.turn + ':' + V.players[me].energy;
+    if (skipKey === key) return;
+    skipKey = key; clearTimeout(skipTimer);
+    UI.toast('Sem jogadas: pulando o turno em 3 segundos… (desligue no ☰ Menu)', '', 2800);
+    skipTimer = setTimeout(() => { if (V && V.active === me && !V.pending && !sel && V.winner == null) ctl.send({ t: 'endTurn' }); }, 3000);
+  }
+
   function renderMid(L) {
     const box = $('#midline');
     const opName = esc(V.players[1 - me].name);
@@ -808,7 +821,9 @@
       hint = canAtk ? 'Jogue cartas com a sua energia ⚡ e ataque com os Personagens brilhando' : 'Jogue cartas com a sua energia ⚡ (Personagens novos atacam no próximo turno)';
       const buy = L.find((a) => a.t === 'buySup');
       btns.push(btn(`🛒 <span class="lg">Comprar </span>Suporte <small>⚡${G.RULES.buyCost}</small>`, '', () => ctl.send({ t: 'buySup' }), !buy));
-      btns.push(btn('✅ Encerrar<span class="lg"> turno</span>', canMore ? '' : 'gold', () => ctl.send({ t: 'endTurn' })));
+      if (!canMore && !buy) hint = canAtk ? 'Sem mais jogadas com a sua energia: ataque ou pule o turno' : 'Você não tem nada para jogar agora: <b>pule o turno</b>';
+      btns.push(btn(canMore || canAtk ? '✅ Encerrar<span class="lg"> turno</span>' : '⏭ Pular<span class="lg"> turno</span>', canMore ? '' : 'gold', () => ctl.send({ t: 'endTurn' })));
+      autoSkipCheck(!canMore && !canAtk && !buy);
     }
     if (hint) html += `<div class="hint ${sel ? '' : 'idle'}">${hint}</div>`;
     box.innerHTML = html;
@@ -937,6 +952,7 @@
       <button class="btn" data-log>🧾 Histórico da partida</button>
       <button class="btn" data-sound>${G.sfx.isOn() ? '🔊 Efeitos ligados' : '🔇 Efeitos desligados'}</button>
       ${document.body.classList.contains('online') ? `<button class="btn" data-mic>${G.Voice.micOn ? '🎙️ Microfone: ligado' : '🎤 Microfone: desligado'}</button><button class="btn" data-hear>${G.Voice.hearOn ? '🔊 Ouvindo o outro jogador' : '🔇 Voz do outro: silenciada'}</button>` : ''}
+      <button class="btn" data-skip>${UI.autoSkip() ? '⏭ Pular turno sozinho sem jogadas: ligado' : '⏭ Pular turno sozinho sem jogadas: desligado'}</button>
       <button class="btn" data-music>🎵 Música: ${G.Music.label().replace(/^\S+\s/, '')}</button>
       <button class="btn wine" data-quit>🏳️ Sair da partida</button>
       <button class="btn gold" data-x>Continuar jogando</button></div>`);
@@ -944,6 +960,7 @@
     $('[data-log]', m).onclick = () => { m.close(); UI.showLog(); };
     $('[data-rules]', m).onclick = () => { m.close(); UI.rules(); };
     $('[data-sound]', m).onclick = (e) => { const on = G.sfx.toggle(); e.target.textContent = on ? '🔊 Efeitos ligados' : '🔇 Efeitos desligados'; };
+    $('[data-skip]', m).onclick = (e) => { UI.setAutoSkip(!UI.autoSkip()); e.target.textContent = UI.autoSkip() ? '⏭ Pular turno sozinho sem jogadas: ligado' : '⏭ Pular turno sozinho sem jogadas: desligado'; };
     $('[data-music]', m).onclick = () => { m.close(); UI.musicPicker(); };
     const mic = $('[data-mic]', m), hear = $('[data-hear]', m);
     if (mic) mic.onclick = async () => { await UI.micClick(); mic.textContent = G.Voice.micOn ? '🎙️ Microfone: ligado' : '🎤 Microfone: desligado'; };
@@ -1038,7 +1055,7 @@
   UI.rules = function () {
     const m = UI.modal(`<h3>Regras rápidas</h3><div class="rules-doc">
       <h4>Objetivo</h4><p>Reduza a vida do adversário de <b>25 para 0</b>. (Nas cartas, 1 ❤️ = 5 pontos de vida: "recupere ❤️1" cura 5.)</p>
-      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 1 Suporte na mão (ninguém escolhe nem devolve cartas). A partida começa sem Evento. Quem começa não compra no primeiro turno. O segundo jogador ganha uma <b>moeda</b>: ⚡+1 só no primeiro turno dele.</p>
+      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 1 Suporte na mão (ninguém escolhe nem devolve cartas). A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de cada jogador só existe ⚡1</b> e nenhum efeito dá energia extra. Todo mundo começa com pelo menos 1 Personagem de custo ⚡1.</p>
       <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡10</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 10.</p>
       <h4>Campo</h4><table><tr><th>Zona</th><th>Limite</th><th>Função</th></tr>
       <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram).</td></tr>
