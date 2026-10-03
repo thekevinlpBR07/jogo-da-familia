@@ -13,7 +13,7 @@
   // Regras ajustáveis (v4: energia que recarrega).
   G.RULES = {
     autoEvent: 3,        // o Evento troca sozinho a cada N rodadas completas (0 = desligado)
-    secondBonus: 'none', // compensação do 2º jogador: 'coin' (⚡+1 só no 1º turno dele) | 'card' (1 Personagem extra) | 'none'
+    secondBonus: 'coin4', // compensação do 2º jogador: 'coinN' = ⚡+(N-1) no 2º turno dele (o 1º turno é ⚡1 para todos) | 'card' | 'sup' | 'draw' | 'none'
     fatigueTurn: 80,     // a partir deste turno (global) quem abre o turno perde Vida (evita partidas eternas); 0 = desligado
     fatigueDmg: 3,
     supDrawEvery: 2,     // compra automática de 1 Suporte a cada N turnos do próprio jogador (0 = desligado)
@@ -111,6 +111,13 @@
       fx(s, { t: 'win', p: opp(p) });
     }
   }
+  // Só recebemos cartas que dá para jogar: a compra pega a primeira carta do baralho que cabe na energia do jogador
+  // (teto de energia do turno); se não houver nenhuma assim, pega a do topo.
+  function takePlayable(s, deck, ceil) {
+    let i = deck.findIndex((c) => G.CARDS[c.id].cost <= ceil);
+    if (i < 0) i = 0;
+    return deck.splice(i, 1)[0];
+  }
   function drawChar(s, p, isPhase) {
     const pl = s.players[p];
     if (pl.hand.length >= 7) { if (isPhase) log(s, `${pn(s, p)} está com a mão cheia (7) e não compra.`); return false; }
@@ -118,7 +125,7 @@
       if (isPhase) loseLife(s, p, 1, 'baralho de Personagens vazio');
       return false;
     }
-    pl.hand.push(s.charDeck.shift());
+    pl.hand.push(takePlayable(s, s.charDeck, Math.min(G.ENERGY_MAX, (pl.maxE || 0) + (isPhase ? 1 : 0))));
     fx(s, { t: 'draw', p });
     return true;
   }
@@ -127,7 +134,7 @@
     if (pl.hand.length >= 7) return false;
     if (!s.supDeck.length) refillSup(s);
     if (!s.supDeck.length) { log(s, 'O baralho de Suportes acabou.'); return false; }
-    pl.hand.push(s.supDeck.shift());
+    pl.hand.push(takePlayable(s, s.supDeck, Math.max(1, pl.maxE || 0)));
     fx(s, { t: 'draw', p, sup: true });
     return true;
   }
@@ -343,24 +350,16 @@
     s.first = o.first != null ? o.first : rnd(s) < 0.5 ? 0 : 1;
     s.active = s.first;
     log(s, `🎲 ${pn(s, s.first)} começa a partida.`);
-    // regra atual: cada jogador compra 4 Personagens + 1 Suporte, sem escolher nem devolver cartas
+    // mão inicial: 4 Personagens e 2 Suportes, todos baratos (custo até ⚡3) e com pelo menos 1 Personagem de ⚡1,
+    // para que nenhuma carta inicial fique parada; ninguém escolhe nem devolve cartas
     for (const p of [s.first, opp(s.first)]) {
-      for (let i = 0; i < 4; i++) s.players[p].hand.push(s.charDeck.shift());
-      s.players[p].hand.push(s.supDeck.shift());
+      const h = s.players[p].hand;
+      h.push(takePlayable(s, s.charDeck, 1));
+      for (let i = 0; i < 3; i++) h.push(takePlayable(s, s.charDeck, 3));
+      for (let i = 0; i < 2; i++) h.push(takePlayable(s, s.supDeck, 3));
     }
     if (G.RULES.secondBonus === 'card') s.players[opp(s.first)].hand.push(s.charDeck.shift());
     if (G.RULES.secondBonus === 'sup') s.players[opp(s.first)].hand.push(s.supDeck.shift());
-    // mão inicial jogável: todo jogador começa com pelo menos 1 Personagem de custo ⚡1 (no 1º turno só há ⚡1)
-    for (const p of [0, 1]) {
-      const h = s.players[p].hand;
-      if (h.some((c) => G.CARDS[c.id].type === 'char' && G.CARDS[c.id].cost <= 1)) continue;
-      const di = s.charDeck.findIndex((c) => G.CARDS[c.id].cost <= 1);
-      const hi = h.map((c, i) => i).filter((i) => G.CARDS[h[i].id].type === 'char').sort((a, b) => G.CARDS[h[b].id].cost - G.CARDS[h[a].id].cost)[0];
-      if (di < 0 || hi == null) continue;
-      const cheap = s.charDeck.splice(di, 1)[0];
-      const out = h.splice(hi, 1, cheap)[0];
-      s.charDeck.splice(Math.floor(rnd(s) * (s.charDeck.length + 1)), 0, out);
-    }
     s.queue.push({ k: 'setupDone' });
     run(s);
     return s;
@@ -455,10 +454,21 @@
     if (s.turn === 1) log(s, `${pn(s, p)} é o primeiro jogador e não compra no primeiro turno.`);
     else drawChar(s, p, true);
     pl.turns = (pl.turns || 0) + 1;
+    if (pl.turns === 2 && p !== s.first && /^coin\d$/.test(G.RULES.secondBonus)) {
+      // compensação do 2º jogador: energia extra no 2º turno dele (o 1º turno continua com ⚡1 para todos); coinN = ⚡+(N-1)
+      pl.pendingCoin = +G.RULES.secondBonus.slice(4) - 1;
+    }
+    if (pl.turns === 1 && p !== s.first && (G.RULES.secondBonus === 'draw' || G.RULES.secondBonus === 'draw2') && s.charDeck.length) {
+      // compensação do 2º jogador: compra extra no 1º turno, mesmo com a mão cheia (a mão pode ir a 8 por um turno)
+      const n = G.RULES.secondBonus === 'draw2' ? 2 : 1;
+      for (let i = 0; i < n && s.charDeck.length; i++) pl.hand.push(takePlayable(s, s.charDeck, 3));
+      log(s, `${pn(s, p)} jogou em 2º e comprou ${n === 1 ? 'uma carta' : n + ' cartas'} extra.`, 'good');
+    }
     // energia: o máximo sobe 1 por turno (até 10) e a energia enche até o máximo; o que sobrou do turno anterior se perde
     pl.maxE = Math.min(G.ENERGY_MAX, (pl.maxE || 0) + 1);
     pl.energy = pl.maxE;
     fx(s, { t: 'energy', p, n: pl.energy });
+    if (pl.pendingCoin) { gainE(s, p, pl.pendingCoin); log(s, `${pn(s, p)} jogou em 2º e ganhou ⚡+${pl.pendingCoin} neste turno.`, 'good'); pl.pendingCoin = 0; }
     if (pl.turns === 1 && p !== s.first && G.RULES.secondBonus === 'coin') { gainE(s, p, 1); log(s, `${pn(s, p)} jogou em 2º e ganhou uma moeda: ⚡+1 neste turno.`, 'good'); }
     {
       const e = evKey(s);

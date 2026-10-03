@@ -140,20 +140,20 @@
   P.forEach(([n, name, title, cost, atk, def, rar, fx, text, ecost, fla]) => {
     CARDS['p' + pad(n)] = {
       id: 'p' + pad(n), type: 'char', name, title, cost, atk, def, rarity: rar, rarityName: RAR[rar],
-      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=53'),
+      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=54'),
       activatable: /^act/.test(fx),
     };
   });
   S.forEach(([n, name, cost, kind, fx, text]) => {
     CARDS['s' + pad(n)] = {
       id: 's' + pad(n), type: 'sup', name, title: kind === 'imm' ? 'Imediato' : kind === 'perm' ? 'Permanente' : 'Permanente - uso único',
-      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=53'),
+      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=54'),
     };
   });
   E.forEach(([n, name, kind, fx, text]) => {
     CARDS['e' + pad(n)] = {
       id: 'e' + pad(n), type: 'ev', name, title: kind === 'imm' ? 'Evento Imediato' : 'Evento Contínuo',
-      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=53'),
+      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=54'),
     };
   });
 

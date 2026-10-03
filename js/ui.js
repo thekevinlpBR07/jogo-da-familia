@@ -49,6 +49,7 @@
     if (!d) return;
     const status = [];
     if (inst) {
+      if (inst.dmg > 0 && d.type === 'char') status.push(`💔 Danificado: vida atual ${Math.max(0, d.def - inst.dmg)} de ${d.def} (recupera tudo no início do turno do dono)`);
       if (inst.stunned) status.push('💫 Atordoado');
       if (inst.protStun) status.push('🛡️ Não pode ser Atordoado até o próximo turno do dono');
       if (inst.protMove) status.push('🔒 Não pode ser movido por efeitos adversários');
@@ -561,6 +562,11 @@
     if (items.length) box.scrollTop = box.scrollHeight;
   }
 
+  // marcação de dano: vida atual / vida total (a DEF impressa), barra e rachaduras
+  function damageMark(d, c) {
+    const hp = Math.max(0, d.def - c.dmg), pct = Math.round((hp / d.def) * 100);
+    return `<div class="hpbar" title="Vida atual ${hp} de ${d.def}"><i style="width:${pct}%"></i></div><div class="dmgtag" title="Vida atual ${hp} de ${d.def} (dano ${c.dmg}); recupera tudo no início do turno do dono">💔 ${hp}/${d.def}</div><div class="cracks"></div>`;
+  }
   function cardEl(c, opts) {
     opts = opts || {};
     const d = C[c.id];
@@ -573,7 +579,9 @@
     if (c.canAtkT === V.turn) badges += '<b title="Pode atacar neste turno">⚽</b>';
     el.innerHTML = `<img src="${d.img}" alt="${esc(G.fullName(d))}" draggable="false">` +
       (d.type === 'char' && !opts.noStats ? `<div class="stats"><span class="a">⚔️${d.atk}</span><span class="d ${c.dmg ? 'hurt' : ''}">🛡️${d.def - (c.dmg || 0)}</span></div>` : '') +
-      (badges ? `<div class="badges">${badges}</div>` : '');
+      (badges ? `<div class="badges">${badges}</div>` : '') +
+      (d.type === 'char' && c.dmg > 0 && !opts.noStats ? damageMark(d, c) : '');
+    if (c.dmg > 0 && d.type === 'char') el.classList.add('damaged');
     if (c.stunned) el.classList.add('stunned');
     if (c.protStun || c.protMove) el.classList.add('protected');
     if (opts.field && c.enteredT === V.turn && c.canAtkT !== V.turn && V.active === opts.owner) el.classList.add('fresh');
@@ -1055,7 +1063,7 @@
   UI.rules = function () {
     const m = UI.modal(`<h3>Regras rápidas</h3><div class="rules-doc">
       <h4>Objetivo</h4><p>Reduza a vida do adversário de <b>25 para 0</b>. (Nas cartas, 1 ❤️ = 5 pontos de vida: "recupere ❤️1" cura 5.)</p>
-      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 1 Suporte na mão (ninguém escolhe nem devolve cartas). A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de cada jogador só existe ⚡1</b> e nenhum efeito dá energia extra. Todo mundo começa com pelo menos 1 Personagem de custo ⚡1.</p>
+      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 2 Suportes na mão (ninguém escolhe nem devolve cartas), todos baratos: custo até ⚡3. A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de cada jogador só existe ⚡1</b> e nenhum efeito dá energia extra. Para compensar a vantagem de quem começa, o <b>segundo jogador ganha ⚡+3 no 2º turno dele</b>. Todo mundo começa com pelo menos 1 Personagem de custo ⚡1. <b>Só recebemos cartas que dá para jogar:</b> cada carta comprada é a primeira do baralho cujo custo cabe na sua energia daquele turno (as caras só chegam quando você já tem energia para elas).</p>
       <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡10</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 10.</p>
       <h4>Campo</h4><table><tr><th>Zona</th><th>Limite</th><th>Função</th></tr>
       <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram).</td></tr>

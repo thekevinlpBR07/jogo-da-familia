@@ -742,3 +742,23 @@ body.online .online-only { display: grid !important; }
   .plate-slot.compact .hearts .lifenum { margin-left: 2px; font-size: 0.85em; }
   .plate-slot.compact .nrg-num { font-size: 14px; }
 }
+
+/* carta danificada: vida atual visível, barra de vida e rachaduras */
+.card.damaged { box-shadow: 0 6px 16px rgba(0,0,0,.55), 0 0 0 2px rgba(255,80,80,.75), 0 0 14px rgba(255,60,60,.55); }
+.card.damaged img { filter: saturate(.78) brightness(.92) sepia(.15) hue-rotate(-12deg); }
+.card .dmgtag {
+  position: absolute; left: 50%; bottom: 40%; transform: translateX(-50%); z-index: 3; pointer-events: none;
+  font-family: var(--font-title); font-weight: 800; font-size: max(11px, calc(var(--cw) * 0.15)); white-space: nowrap;
+  color: #fff; padding: 1px 7px; border-radius: 10px; background: linear-gradient(#e0343f, #8f1420); border: 1px solid #ffb4b8;
+  box-shadow: 0 2px 6px rgba(0,0,0,.6); text-shadow: 0 1px 2px rgba(0,0,0,.7);
+}
+.card .hpbar { position: absolute; left: 6%; right: 6%; bottom: 37%; height: max(4px, calc(var(--cw) * 0.045)); z-index: 3; pointer-events: none; border-radius: 4px; background: rgba(0,0,0,.7); border: 1px solid rgba(255,255,255,.35); overflow: hidden; }
+.card .hpbar i { display: block; height: 100%; background: linear-gradient(90deg, #ff4b55, #ffb04a); }
+.card .cracks {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit; opacity: .85; mix-blend-mode: multiply;
+  background:
+    linear-gradient(115deg, transparent 46%, rgba(70,0,0,.75) 47%, transparent 48.4%) 0 0 / 100% 100% no-repeat,
+    linear-gradient(62deg, transparent 58%, rgba(70,0,0,.65) 59%, transparent 60.2%) 0 0 / 100% 100% no-repeat,
+    linear-gradient(155deg, transparent 30%, rgba(70,0,0,.6) 31%, transparent 32%) 0 0 / 100% 100% no-repeat,
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(150,0,10,.45) 100%);
+}

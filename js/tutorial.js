@@ -32,7 +32,9 @@
     {
       t: 'Preparação',
       body: `<ul><li>Cada jogador começa com <b>25 de vida</b> (1 ❤️ nas cartas = 5 pontos). No <b>primeiro turno de cada um só existe ⚡1</b> e nenhum efeito dá energia extra.</li>
-        <li>Compre <b>4 Personagens</b> e <b>1 Suporte</b> — sem escolher nem devolver. Sua mão sempre tem <b>pelo menos 1 Personagem de custo ⚡1</b>.</li>
+        <li>Compre <b>4 Personagens</b> e <b>2 Suportes</b> — sem escolher nem devolver, todos <b>baratos (até ⚡3)</b>. Sua mão sempre tem <b>pelo menos 1 Personagem de custo ⚡1</b>.</li>
+        <li>Para compensar quem começa, o <b>segundo jogador ganha ⚡+3 no 2º turno dele</b>.</li>
+        <li><b>Só recebemos cartas que dá para jogar</b>: as compras seguem a sua energia (no turno 5, só vêm cartas de custo até ⚡5, quando houver). Cartas fortes chegam conforme a energia sobe.</li>
         <li>A partida começa <b>sem Evento</b>. O sorteio decide quem começa (as duas posições são equilibradas).</li>
         <li>Quem começa <b>não compra</b> carta no seu primeiro turno.</li></ul>`,
       vis: () => card('p13') + card('p22') + card('p49') + card('p25') + card('s03', 'outline:3px solid #3fbf7f'),
