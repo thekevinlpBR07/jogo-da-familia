@@ -8,6 +8,7 @@
   const meters = {}; // medidores de volume (quem está falando)
   let meterTimer = null;
   const speaking = { me: false, other: false };
+  let lastSpeech = -1e9, voiceDuck = false;
 
   const changed = () => { if (V.onChange) V.onChange(); };
   const peer = () => G.Net && G.Net.peer;
@@ -39,6 +40,11 @@
       for (let i = 0; i < m.buf.length; i++) peak = Math.max(peak, Math.abs(m.buf[i] - 128));
       speaking[key] = peak > 9;
     });
+    // conversando? a música fica baixinha e volta ~1,5 s depois que todos calam
+    const now = performance.now();
+    if (speaking.me || speaking.other) lastSpeech = now;
+    const talking = now - lastSpeech < 1500;
+    if (talking !== voiceDuck) { voiceDuck = talking; if (G.Music && G.Music.duck) G.Music.duck(talking, 'voice'); }
     paint();
   }
   function paint() {
@@ -112,6 +118,7 @@
     stopMeter('other');
     clearInterval(meterTimer);
     meterTimer = null;
+    if (voiceDuck) { voiceDuck = false; if (G.Music && G.Music.duck) G.Music.duck(false, 'voice'); }
     attached = null;
     changed();
   };

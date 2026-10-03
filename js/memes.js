@@ -27,7 +27,7 @@
 
   Memes.stop = function () {
     if (cur) { cur.onended = null; cur.pause(); cur.src = ''; cur = null; }
-    if (now) { now = null; if (G.Music && G.Music.duck) G.Music.duck(false); changed(); }
+    if (now) { now = null; if (G.Music && G.Music.duck) G.Music.duck(false, 'meme'); changed(); }
   };
   // toca o som `id`, cortando o que estiver tocando; `who` = nome de quem apertou
   Memes.play = function (id, who) {
@@ -38,8 +38,8 @@
     a.volume = 1;
     cur = a;
     now = m;
-    if (G.Music && G.Music.duck) G.Music.duck(true);
-    a.onended = () => { if (cur === a) { cur = null; now = null; if (G.Music && G.Music.duck) G.Music.duck(false); changed(); } };
+    if (G.Music && G.Music.duck) G.Music.duck(true, 'meme');
+    a.onended = () => { if (cur === a) { cur = null; now = null; if (G.Music && G.Music.duck) G.Music.duck(false, 'meme'); changed(); } };
     a.onerror = a.onended;
     a.play().catch(() => a.onended());
     changed();

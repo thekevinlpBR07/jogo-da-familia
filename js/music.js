@@ -366,7 +366,7 @@
 
   const M = (G.Music = {
     mode: validMode(saved) ? saved : 'royal',
-    vol: Math.min(1, Math.max(0, parseFloat(store('music-vol', '0.6')) || 0.6)),
+    vol: Math.min(1, Math.max(0, parseFloat(store('music-vol2', '0.18')) || 0.18)),
     entrance: store('music-entrance', 'on') !== 'off', // trecho do tema quando uma Lendária entra em campo
     tracks: TRACKS,
     onTrack: null,
@@ -377,7 +377,7 @@
   let paused = false, hist = [];
   let audio = null, audioFade = null, lastTheme = null, stingAudio = null, stingT = null, ducked = false;
   const synthMode = () => !!SYNTH[M.mode];
-  const fileGain = () => M.vol * 0.9 * (ducked ? 0.22 : 1);
+  const fileGain = () => M.vol * 0.9 * (ducked ? 0.2 : 1);
 
   // ---------- arquivos
   function fadeAudio(a, to, ms, done) {
@@ -464,7 +464,7 @@
     if (!master || master.context !== ctx) master = chain(ctx);
     master.gain.cancelScheduledValues(ctx.currentTime);
     master.gain.setValueAtTime(0.0001, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(M.vol * 0.75 * (ducked ? 0.22 : 1), ctx.currentTime + 1.8);
+    master.gain.linearRampToValueAtTime(M.vol * 0.75 * (ducked ? 0.2 : 1), ctx.currentTime + 1.8);
     beginSynth(M.mode === 'seq' ? ORDER[0] : M.mode);
     clearInterval(timer);
     timer = setInterval(tick, 40);
@@ -660,7 +660,7 @@
   };
   M.setVol = function (v) {
     M.vol = Math.min(1, Math.max(0, v));
-    save('music-vol', String(M.vol));
+    save('music-vol2', String(M.vol));
     applyGain();
   };
   M.setEntrance = function (on) { M.entrance = !!on; save('music-entrance', on ? 'on' : 'off'); };
@@ -708,9 +708,11 @@
   };
   function applyGain() {
     if (audio) audio.volume = fileGain();
-    if (master && ctx && playing && synthMode()) master.gain.setTargetAtTime(M.vol * 0.75 * (ducked ? 0.22 : 1), ctx.currentTime, 0.1);
+    if (master && ctx && playing && synthMode()) master.gain.setTargetAtTime(M.vol * 0.75 * (ducked ? 0.2 : 1), ctx.currentTime, 0.1);
   }
-  function duck(on) { ducked = on; applyGain(); }
+  // a música abaixa quando algo mais importante toca/fala (meme, tema de Lendária, conversa por voz); cada um com sua "chave"
+  const duckKeys = new Set();
+  function duck(on, key) { if (on) duckKeys.add(key || 'x'); else duckKeys.delete(key || 'x'); ducked = duckKeys.size > 0; applyGain(); }
   M.duck = duck;
   M.isPlaying = () => playing;
 
@@ -738,7 +740,7 @@
   M.stopSting = function () {
     clearTimeout(stingT);
     if (stingAudio) { const a = stingAudio; stingAudio = null; fadeAudio(a, 0, 400, () => { a.pause(); a.src = ''; }); }
-    if (ducked) duck(false);
+    duck(false, 'sting');
   };
   M.sting = function (cardId) {
     if (!playing || !M.entrance || M.mode === 'off') return;
@@ -749,10 +751,10 @@
     a.volume = Math.min(1, M.vol * 1.0);
     a.play().catch(() => {});
     stingAudio = a;
-    duck(true);
+    duck(true, 'sting');
     stingT = setTimeout(() => {
       fadeAudio(a, 0, 1500, () => { a.pause(); a.src = ''; if (stingAudio === a) stingAudio = null; });
-      setTimeout(() => duck(false), 900);
+      setTimeout(() => duck(false, 'sting'), 900);
     }, 9000);
   };
   // jingle de fim de jogo; devolve false se a música estiver desligada
