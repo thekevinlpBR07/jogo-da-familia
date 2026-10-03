@@ -181,7 +181,8 @@
   // ================================================================ aplicação de estado + animações
   const elOf = (uid) => $(`#game [data-uid="${uid}"]`);
   const plateOf = (p) => {
-    const a = $(`#plate-${p} .plate`), b = $(`#mplate-${p} .plate`);
+    const side = V && p === V.me ? 0 : 1; // as placas ficam por lado da mesa (eu embaixo), não pelo número do jogador
+    const a = $(`#plate-${side} .plate`), b = $(`#mplate-${side} .plate`);
     return a && a.offsetParent ? a : b && b.offsetParent ? b : a || b;
   };
 
@@ -232,6 +233,7 @@
         case 'stun': { const el = elOf(f.uid); if (el) el.animate([{ translate: '0 0' }, { translate: '-6px 0' }, { translate: '6px 0' }, { translate: '0 0' }], { duration: 300, iterations: 2 }); G.sfx('stun'); break; }
         case 'shield': case 'activate': case 'unstun': { const el = elOf(f.uid); if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } G.sfx('select'); break; }
         case 'damage': damageFx(f.p, f.n); break;
+        case 'hit': { const el = elOf(f.uid); if (el && f.n > 0) { floatAt(el, `-${f.n}`, 'dmg'); el.animate([{ filter: 'brightness(2.2)' }, { filter: 'none' }], { duration: 350 }); } break; }
         case 'heal': floatAt(plateOf(f.p), `+${f.n} ❤️`, 'heal'); G.sfx('heal'); break;
         case 'energy': if (!energyShown[f.p]) { energyShown[f.p] = 1; floatAt(plateOf(f.p), `+${f.n} ⚡`, 'nrg'); G.sfx('energy'); } break;
         case 'event': G.sfx('event'); await showcase(f.id, '🌟 Novo Evento', 2600, true); break;
@@ -296,11 +298,10 @@
       impact(ct.x, ct.y);
       t.animate([{ translate: '0 0' }, { translate: '-9px 3px' }, { translate: '8px -2px' }, { translate: '-4px 0' }, { translate: '0 0' }], { duration: 380 });
       G.sfx('hit');
-      if (f.a != null) {
+      if (f.a != null && f.d != null) {
         const tag = document.createElement('div');
         tag.className = 'vs-tag';
-        const res = f.a > f.d ? '>' : f.a === f.d ? '=' : '<';
-        tag.innerHTML = `<span class="a">⚔️${f.a}</span> ${res} <span class="d">🛡️${f.d}</span>`;
+        tag.innerHTML = `<span class="a">⚔️ ${f.a}</span> ⇄ <span class="d">↩ ${f.d}</span>`;
         tag.style.left = (ca.x + ct.x) / 2 + 'px';
         tag.style.top = (ca.y + ct.y) / 2 + 'px';
         $('#fx-layer').appendChild(tag);
@@ -424,21 +425,25 @@
     const pl = V.players[p];
     const side = p === me ? 0 : 1;
     const turn = V.active === p && V.winner == null;
-    const hearts = Array.from({ length: 5 }, (_, i) => `<i class="${i < pl.life ? '' : 'off'}">❤️</i>`).join('');
-    const nrg = Array.from({ length: 8 }, (_, i) => `<i class="${i < pl.energy ? 'on' : ''}"></i>`).join('');
+    const K = G.RULES.heartPts, hn = Math.round(G.RULES.lifeStart / K);
+    const hearts = Array.from({ length: hn }, (_, i) => {
+      const f = Math.max(0, Math.min(1, (pl.life - i * K) / K));
+      return `<i><s>❤️</s><b style="width:${Math.round(f * 100)}%">❤️</b></i>`;
+    }).join('') + `<em class="lifenum">${pl.life}</em>`;
+    const nrg = Array.from({ length: G.ENERGY_MAX }, (_, i) => `<i class="${i < pl.energy ? 'on' : i < pl.maxE ? 'spent' : 'lock'}"></i>`).join('') + `<b>${pl.energy}/${Math.max(pl.maxE, pl.energy)}</b>`;
     const avatar = (ctl.avatars && ctl.avatars[p]) || 'p01';
     const html = `<div class="plate ${turn ? 'turn' : ''}" data-plate="${p}">
       <div class="avatar" style="${avatarStyle(avatar)}"></div>
       <div class="pname">${esc(pl.name)}${p === me ? '<em>(você)</em>' : ''}</div>
       <div class="hearts" title="Vida">${hearts}</div>
-      <div class="energy" title="Energia">${nrg}<b>${pl.energy}</b></div>
+      <div class="energy" title="Energia: o máximo sobe 1 por turno (até ${G.ENERGY_MAX}) e recarrega todo turno">${nrg}</div>
       <div class="meta"><span title="Cartas na mão">🂠 ${pl.hand.length}</span><span title="Descarte">🗑️ ${pl.discard.length}</span></div>
     </div>`;
     const compactHtml = `<div class="plate ${turn ? 'turn' : ''}" data-plate="${p}">
       <div class="avatar" style="${avatarStyle(avatar)}"></div>
       <div class="pname">${esc(pl.name)}</div>
       <div class="hearts">${hearts}</div>
-      <div class="nrg-num">⚡<b>${pl.energy}</b></div>
+      <div class="nrg-num">⚡<b>${pl.energy}/${Math.max(pl.maxE, pl.energy)}</b></div>
       <div class="hand-num">🂠${pl.hand.length}</div>
     </div>`;
     const put = (sel2) => {
@@ -499,7 +504,7 @@
     const box = $('#event-box');
     const eb = $('#btn-event');
     if (!V.event) {
-      box.innerHTML = `<div class="ev-card back-art ev" style="position:relative;--bw:74px"></div><div><h4>Nenhum Evento ativo</h4><p>${evCountdown()} Ou pague ⚡${G.EVENT_COST} para chamar um agora.</p></div>`;
+      box.innerHTML = `<div class="ev-card back-art ev" style="position:relative;--bw:74px"></div><div><h4>Nenhum Evento ativo</h4><p>${evCountdown()}</p></div>`;
       box.onclick = null;
       eb.style.backgroundImage = '';
       eb.textContent = '🌟';
@@ -567,7 +572,7 @@
     if (c.protMove) badges += '<b title="Não pode ser movido por efeitos adversários">🔒</b>';
     if (c.canAtkT === V.turn) badges += '<b title="Pode atacar neste turno">⚽</b>';
     el.innerHTML = `<img src="${d.img}" alt="${esc(G.fullName(d))}" draggable="false">` +
-      (d.type === 'char' && !opts.noStats ? `<div class="stats"><span class="a">⚔️${d.atk}</span><span class="d">🛡️${d.def}</span></div>` : '') +
+      (d.type === 'char' && !opts.noStats ? `<div class="stats"><span class="a">⚔️${d.atk}</span><span class="d ${c.dmg ? 'hurt' : ''}">🛡️${d.def - (c.dmg || 0)}</span></div>` : '') +
       (badges ? `<div class="badges">${badges}</div>` : '');
     if (c.stunned) el.classList.add('stunned');
     if (c.protStun || c.protMove) el.classList.add('protected');
@@ -631,7 +636,7 @@
     if (a.t === 'playChar') {
       const c = V.players[me].hand.find((x) => x.uid === sel.uid);
       s.dataset.cost = `Jogar ⚡${G.charCost(V, me, c)}`;
-    } else s.dataset.cost = 'Mover';
+    } else s.dataset.cost = 'Mover ⚡' + G.RULES.moveCost;
     s.onclick = () => { G.sfx('click'); const act = a; sel = null; ctl.send(act); };
   }
 
@@ -701,8 +706,7 @@
         if (longPressed(el)) return;
         hidePreview();
         if (!playable) {
-          if (V.active === me && V.phase === 'combat' && !V.pending) UI.toast('Você já usou sua Ação neste turno. Ataque ou encerre o turno.', '', 2200);
-          else if (V.active === me && pl.energy < cost && !V.pending) UI.toast(`Energia insuficiente: custa ⚡${cost} e você tem ⚡${pl.energy}.`, 'err', 2200);
+          if (V.active === me && pl.energy < cost && !V.pending) UI.toast(`Energia insuficiente: custa ⚡${cost} e você tem ⚡${pl.energy}.`, 'err', 2200);
           else UI.zoom(c.id);
           return;
         }
@@ -737,7 +741,7 @@
   function abilityBlock(c) {
     const d = C[c.id];
     const pl = V.players[me];
-    if (V.phase !== 'action' || V.actionUsed) return 'você já usou a sua Ação neste turno (habilidades Ativáveis gastam a Ação).';
+    if (c.actT === V.turn) return 'essa habilidade já foi usada neste turno (1 vez por turno).';
     if (V.event && C[V.event].fx === 'festa') return 'o Evento Festa da Família bloqueia habilidades Ativáveis.';
     if (c.stunned) return 'este Personagem está Atordoado.';
     const cost = G.actCost(V, me, c);
@@ -746,14 +750,6 @@
     if (d.fx === 'actUnstunDef') return 'precisa ter outro Defensor seu (🛡️) Atordoado para recuperar.';
     if (d.fx === 'actPeek') return 'o baralho de Personagens está vazio.';
     return 'não há alvo válido.';
-  }
-
-  function passGain() {
-    const e = V.event ? C[V.event].fx : null;
-    let g = V.players[me].perms.some((c) => C[c.id].fx === 'sofa') ? 3 : 2;
-    if (e === 'noite') g = 3;
-    if (e === 'naoCaiuPix') g = 1;
-    return Math.min(3, g);
   }
 
   function renderMid(L) {
@@ -773,9 +769,8 @@
       box.innerHTML = `<div class="phase-pill theirs">🕰️ Turno de ${opName}</div><div class="hint">${ctl.mode === 'ai' ? 'O computador está pensando…' : 'Aguarde a jogada do adversário'}</div>`;
       return;
     }
-    const inAction = V.phase === 'action' && !V.actionUsed;
-    const steps = `<span class="steps"><i class="on">Compra</i><i class="${inAction ? 'on' : ''}">Ação</i><i class="${!inAction ? 'on' : ''}">Combate</i></span>`;
-    html += `<div class="phase-pill mine">⭐ <span class="lbl">Seu turno</span> ${steps}</div>`;
+    const mp = V.players[me];
+    html += `<div class="phase-pill mine">⭐ <span class="lbl">Seu turno</span> <span class="steps"><i class="on">⚡ ${mp.energy}/${Math.max(mp.maxE, mp.energy)}</i></span></div>`;
     const btn = (label, cls, fn, dis) => ({ label, cls, fn, dis });
     const btns = [];
     let hint = '';
@@ -807,20 +802,14 @@
         if (perm) btns.push(btn('🚪 Usar Porta dos Fundos', 'gold', () => { sel = null; ctl.send(perm); }));
       }
       btns.push(btn('✖ Cancelar', '', () => { sel = null; render(); }));
-    } else if (inAction) {
-      hint = 'Escolha <b>1 ação</b> — jogue um Personagem, mova, use habilidade ou compre Suporte (Suporte jogado é grátis em Ação)';
-      const buy = L.find((a) => a.t === 'buySup');
-      btns.push(btn('🛒 <span class="lg">Comprar </span>Suporte', '', () => ctl.send({ t: 'buySup' }), !buy));
-
-      btns.push(btn(`💤 Passar <small>+⚡${passGain()}</small>`, 'wine', () => ctl.send({ t: 'pass' })));
-      btns.push(btn('⚔️ Combate', 'gold', () => ctl.send({ t: 'toCombat' })));
     } else {
+      const canMore = L.some((a) => a.t !== 'endTurn' && a.t !== 'buySup');
       const canAtk = L.some((a) => a.t === 'attack');
-      hint = canAtk ? 'Combate: clique num Personagem brilhando para atacar' : 'Nenhum atacante pronto';
-      btns.push(btn('✅ Encerrar<span class="lg"> turno</span>', canAtk ? '' : 'gold', () => ctl.send({ t: 'endTurn' })));
+      hint = canAtk ? 'Jogue cartas com a sua energia ⚡ e ataque com os Personagens brilhando' : 'Jogue cartas com a sua energia ⚡ (Personagens novos atacam no próximo turno)';
+      const buy = L.find((a) => a.t === 'buySup');
+      btns.push(btn(`🛒 <span class="lg">Comprar </span>Suporte <small>⚡${G.RULES.buyCost}</small>`, '', () => ctl.send({ t: 'buySup' }), !buy));
+      btns.push(btn('✅ Encerrar<span class="lg"> turno</span>', canMore ? '' : 'gold', () => ctl.send({ t: 'endTurn' })));
     }
-    const evA = L.find((a) => a.t === 'callEvent');
-    if (!sel && (evA || V.players[me].evT === V.turn)) btns.unshift(btn(`🌟 ${V.event ? 'Trocar' : 'Chamar'}<span class="lg"> Evento</span> <small>⚡${G.EVENT_COST} · grátis em Ação</small>`, '', () => ctl.send({ t: 'callEvent' }), !evA));
     if (hint) html += `<div class="hint ${sel ? '' : 'idle'}">${hint}</div>`;
     box.innerHTML = html;
     btns.forEach((b) => {
@@ -1048,19 +1037,22 @@
 
   UI.rules = function () {
     const m = UI.modal(`<h3>Regras rápidas</h3><div class="rules-doc">
-      <h4>Objetivo</h4><p>Reduza a Vida (❤️) do adversário de 5 para 0.</p>
-      <h4>Início</h4><p>Cada jogador começa com ❤️5 e ⚡3 e compra 4 Personagens e 1 Suporte (ninguém escolhe nem devolve cartas). A partida começa sem Evento. Quem começa não compra no primeiro turno. O segundo jogador começa com ⚡1 a mais (⚡4).</p>
+      <h4>Objetivo</h4><p>Reduza a vida do adversário de <b>25 para 0</b>. (Nas cartas, 1 ❤️ = 5 pontos de vida: "recupere ❤️1" cura 5.)</p>
+      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 1 Suporte na mão (ninguém escolhe nem devolve cartas). A partida começa sem Evento. Quem começa não compra no primeiro turno. O segundo jogador ganha uma <b>moeda</b>: ⚡+1 só no primeiro turno dele.</p>
+      <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡10</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 10.</p>
       <h4>Campo</h4><table><tr><th>Zona</th><th>Limite</th><th>Função</th></tr>
       <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram).</td></tr>
-      <tr><td>🛡️ Defesa</td><td>3</td><td>Protegem a sua Vida.</td></tr>
+      <tr><td>🛡️ Defesa</td><td>3</td><td>Protegem a sua vida: enquanto existir um Defensor, o herói não pode ser atacado.</td></tr>
       <tr><td>🤝 Apoio</td><td>2</td><td>Não atacam, não defendem e não podem ser atacados. Ativam efeitos 🤝.</td></tr>
       <tr><td>🛠️ Suportes</td><td>2</td><td>Suportes Permanentes ficam aqui.</td></tr></table>
-      <h4>Turno</h4><p><b>COMPRE</b> 1 Personagem (se tiver menos de 7 cartas) → <b>1 AÇÃO</b> (jogar Personagem, jogar Suporte, comprar Suporte, mover 1 Personagem, usar 1 habilidade Ativável). <b>Jogar 1 Suporte por turno não gasta a Ação</b>, e a cada 2 turnos seus você compra 1 Suporte automaticamente → <b>COMBATE</b> → <b>ENERGIA</b> (+⚡1, ou +⚡2 se derrotou alguém em combate). Ou <b>PASSE</b>: não faz nada e ganha ⚡2.</p>
-      <h4>Combate</h4><p>O atacante usa ⚔️ e o alvo usa 🛡️. Maior: o alvo cai. Empate: os dois caem. Menor: o atacante cai e o alvo fica <b>Atordoado</b>.</p>
-      <p>Com Defensores, ataques à Vida precisam enfrentar a Defesa. <b>Desafio</b>: atacar um Personagem do Ataque inimigo (nunca causa dano à Vida). Sem Defensores: <b>ataque direto</b> tira ❤️1. Derrubar a última Defesa e sobreviver causa <b>Rompimento</b> (❤️1). Máximo de ❤️1 perdido por turno.</p>
-      <h4>Atordoado</h4><p>Não ataca, não usa Ativável, não se move nem é movido por efeitos. Continua defendendo. Recupera no fim do próximo turno do dono.</p>
-      <h4>Limites</h4><p>Mão: 7 cartas · Energia: ⚡8 · Vida: ❤️5 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>
-      <h4>Eventos</h4><p>No máximo 1 Evento fica ativo e ele <b>troca sozinho a cada 3 rodadas</b> (o primeiro entra no fim da 3ª). Além disso, uma vez por turno você pode pagar ⚡${G.EVENT_COST} (sem gastar a Ação) para revelar o próximo Evento na hora, descartando o atual. Efeitos "Ao revelar" acontecem na hora.</p>
+      <h4>Turno</h4><p><b>COMPRE</b> 1 Personagem (se tiver menos de 7 cartas) → faça o que quiser com sua energia, em qualquer ordem: <b>jogar Personagens e Suportes</b>, <b>comprar 1 Suporte</b> (⚡1), <b>mover</b> um Personagem (⚡1, uma vez por Personagem), usar <b>habilidades Ativáveis</b> (uma vez por turno cada), e <b>atacar</b> com cada Personagem pronto → <b>ENCERRE</b> o turno. A cada 2 turnos seus você também compra 1 Suporte automaticamente.</p>
+      <h4>Combate</h4><p>O atacante causa o próprio ⚔️ de dano. Um Personagem atacado <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo. O dano fica na carta até o <b>início do turno do dono dela</b>, e a carta cai quando o dano chega à sua 🛡️. Dá para combinar vários ataques para derrubar um alvo.</p>
+      <p>Contra um herói com Defensores, ataque os Defensores. <b>Desafio</b>: atacar um Personagem do Ataque inimigo. Sem Defensores, <b>todos os seus atacantes podem atacar o herói</b>, cada um tirando vida igual ao seu ⚔️ (sem contra-ataque).</p>
+      <h4>Dicas de energia e custo</h4><p>As cartas custam de <b>⚡1 a ⚡10</b> (o número no selo dourado). Jogar cartas baratas cedo e guardar as fortes para depois é normal. Mover custa ⚡1, só vale uma vez por Personagem por turno, e <b>quem se moveu não ataca</b> naquele turno. Personagem recém-jogado também só ataca no turno seguinte. O dano que uma carta sofreu aparece em vermelho na defesa dela.</p>
+      <h4>Atordoado</h4><p>Efeitos de cartas podem Atordoar: não ataca, não usa Ativável, não se move. Continua defendendo. Recupera no fim do próximo turno do dono.</p>
+      <h4>Limites</h4><p>Mão: 7 cartas · Energia: ⚡10 · Vida: 25 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>
+      <h4>Eventos</h4><p>No máximo 1 Evento fica ativo e ele <b>troca sozinho a cada 3 rodadas</b> (o primeiro entra no fim da 3ª). Ninguém compra nem troca Eventos.</p>
+      <h4>Cansaço</h4><p>Se a partida passar do <b>turno 80</b> (cerca de 40 rodadas), quem começa o turno perde <b>3 de vida</b> — assim nenhum empate dura para sempre.</p>
       <h4>Regra de ouro</h4><p>Se o texto de uma carta contrariar uma regra, vale o que a carta diz.</p>
     </div><div class="btns" style="margin-top:14px"><button class="btn gold" data-x>Fechar</button></div>`);
     $('[data-x]', m).onclick = () => m.close();

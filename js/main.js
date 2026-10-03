@@ -19,15 +19,30 @@
 
   // ================================================================ navegação
   let screen = 'menu';
-  function show(id) {
+  let show = function show(id) {
     $$('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
     screen = id;
     sparks.running = id !== 'game';
     if (id === 'tutorial') G.Tutorial.open();
     if (id === 'collection') renderCollection();
     if (id === 'game') requestAnimationFrame(() => UI.layout());
-  }
+  };
   G.show = show;
+
+  // ---- botão Voltar do navegador/celular: fecha janela aberta, volta ao menu ou abre o menu da partida (nunca sai do site sem querer)
+  const layersOpen = () => $$('#modal-root .modal-bg').length > 0 || screen !== 'menu';
+  const pushGuard = () => { try { if (!(history.state && history.state.g)) history.pushState({ g: 1 }, ''); } catch (e) { } };
+  new MutationObserver(() => { if (layersOpen()) pushGuard(); }).observe($('#modal-root'), { childList: true });
+  const showBase = show;
+  show = function (id) { showBase(id); if (id !== 'menu') pushGuard(); };
+  G.show = show;
+  window.addEventListener('popstate', () => {
+    const m = $$('#modal-root .modal-bg').pop();
+    if (m) { if (!m.dataset.pending && m.close) m.close(); }
+    else if (screen === 'game') { const b = $('#btn-menu'); if (b && b.offsetParent) b.click(); else $('#btn-menu2') && $('#btn-menu2').click(); }
+    else if (screen !== 'menu') { if (screen === 'online') { G.Net.close(); resetHostBox(); } showBase('menu'); }
+    if (layersOpen()) pushGuard();
+  });
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-go]');
     if (!b) return;
@@ -228,7 +243,16 @@
       },
       onConnect() { UI.toast('Alguém entrou na sala! 🎉'); },
       onMessage(m) { hostMessage(m); },
-      onClose() { onlineLost('O outro jogador saiu da partida.'); },
+      onClose() {
+        // partida em andamento: espera o outro jogador voltar com o mesmo código (a sala continua aberta)
+        if (game && game.mode === 'host' && game.s && game.s.winner == null && !game.waiting) {
+          game.waiting = true;
+          const m = UI.modal(`<h3>Jogador saiu</h3><p class="sub">A partida está guardada. Se ele voltar com o código <b>${code || ''}</b>, ela continua de onde parou.</p><div class="btns"><button class="btn gold" data-x>Encerrar e voltar ao menu</button></div>`, { dismiss: false });
+          m.dataset.pending = '1';
+          game.waitModal = m;
+          $('[data-x]', m).onclick = () => { m.close(); exitGame(); };
+        } else onlineLost('O outro jogador saiu da partida.');
+      },
       onError(e) { UI.toast(Net.errorText(e), 'err', 4000); $('#btn-host').disabled = false; },
     }).catch((e) => { UI.toast(e.message, 'err', 4000); $('#btn-host').disabled = false; });
   };
@@ -243,7 +267,14 @@
     clk.off = clk.samples.reduce((b, s) => (s.rtt < b.rtt ? s : b)).off;
   }
   function hostMessage(m) {
-    if (m.type === 'hello') { game = { mode: 'host', guest: { name: String(m.name || 'Convidado').slice(0, 16), avatar: C[m.avatar] ? m.avatar : 'p05' } }; hostNewGame(); }
+    if (m.type === 'hello' && game && game.mode === 'host' && game.s && game.waiting) {
+      game.waiting = false;
+      if (game.waitModal) { game.waitModal.close(); game.waitModal = null; }
+      game.guest = { name: String(m.name || game.guest.name).slice(0, 16), avatar: C[m.avatar] ? m.avatar : game.guest.avatar };
+      UI.toast(`${game.guest.name} voltou para a partida! 🎉`);
+      G.Music.sync.resend();
+      hostBroadcast();
+    } else if (m.type === 'hello') { game = { mode: 'host', guest: { name: String(m.name || 'Convidado').slice(0, 16), avatar: C[m.avatar] ? m.avatar : 'p05' } }; hostNewGame(); }
     else if (m.type === 'act' && game && game.s) {
       const r = G.act(game.s, 1, m.a);
       if (!r.ok) Net.send({ type: 'err', msg: r.err });

@@ -11,25 +11,24 @@
   };
   const valId = (id) => val({ id });
 
+  const hp = (c) => D(c).def - (c.dmg || 0);
   function side(s, p) {
     const pl = s.players[p];
-    let v = pl.life * 14 + pl.energy * 0.9 + pl.hand.length * 1.7 + pl.perms.length * 2.5;
-    pl.atk.forEach((c) => { const d = D(c); v += 3 + d.atk * 1.15 + d.def * 0.25 - (c.stunned ? 2 : 0); });
-    pl.def.forEach((c) => { const d = D(c); v += 3 + d.def * 1.05 + d.atk * 0.2 - (c.stunned ? 0.5 : 0); });
-    pl.apoio.forEach((c) => { v += 2.5 + D(c).cost * 0.9; });
-    if (!pl.def.length) v -= 7;
+    let v = pl.life * 2.8 + pl.energy * 0.12 + pl.hand.length * 1.7 + pl.perms.length * 2.5;
+    pl.atk.forEach((c) => { const d = D(c); v += 3 + d.atk * 1.2 + hp(c) * 0.35 - (c.stunned ? 2 : 0); });
+    pl.def.forEach((c) => { const d = D(c); v += 3 + hp(c) * 0.9 + d.atk * 0.25 - (c.stunned ? 0.5 : 0); });
+    pl.apoio.forEach((c) => { v += 2.5 + D(c).cost * 0.6; });
+    if (!pl.def.length) v -= 5;
     return v;
   }
-  // ameaça que o adversário `o` representa para `p` no próximo turno
+  // dano que o adversário pode causar a `p` no próximo turno dele
   function threat(s, p) {
     const me = s.players[p], o = s.players[opp(p)];
-    const att = o.atk.filter((c) => !c.stunned);
-    if (!att.length) return 0;
-    if (!me.def.length) return 13 + att.length;
-    const weakest = Math.min(...me.def.map((c) => D(c).def));
-    const breakers = att.filter((a) => D(a).atk > weakest).length;
-    if (!breakers) return 0;
-    return 3 * breakers + (me.def.length === 1 ? 9 : 0);
+    const potential = o.atk.filter((c) => !c.stunned).reduce((a, c) => a + D(c).atk, 0);
+    if (!potential) return 0;
+    const wall = me.def.length ? Math.min(1, 0.12 + 0.06 * (3 - me.def.length)) : 1; // com Defensores o dano na vida é bem menor
+    const lethal = potential * wall >= me.life ? 40 : 0;
+    return potential * wall * 1.1 + lethal;
   }
   function evalS(s, p) {
     if (s.winner === p) return 1e6;
@@ -111,14 +110,12 @@
     const o = s.players[opp(p)];
     if (t === 'life') return 40;
     const T = o.def.concat(o.atk).find((c) => c.uid === t);
-    const a = D(A).atk, d = D(T).def;
-    const lastDef = o.def.length === 1 && o.def[0] === T;
-    if (a > d) return 10 + val(T) + (lastDef && !s.lifeLost && D(T).fx !== 'julianaDama' ? 30 : 0);
-    if (a === d) {
-      if (D(A).fx === 'paladino' && o.atk.includes(T)) return 10 + val(T);
-      return val(T) - val(A) + 1;
-    }
-    return bad ? 1 : -10 - val(A);
+    const a = D(A).atk, back = D(T).atk;
+    const kills = a >= hp(T), dies = back >= hp(A);
+    if (kills && !dies) return 12 + val(T);
+    if (kills && dies) return val(T) - val(A) + 1;
+    if (dies) return bad ? 1 : -10 - val(A);
+    return 2 + (a - back) * 0.4;
   }
   function bestAttack(s, p, bad) {
     let best = null;
@@ -141,33 +138,35 @@
   }
 
   // ---------------------------------------------------------------- Médio
-  function simulateAction(s, p, a) {
-    const sim = G.clone(s);
-    // a IA não pode "saber" qual Evento vem: embaralha a cópia antes de simular
-    if (a.t === 'callEvent') sim.evDeck.sort(() => Math.random() - 0.5);
-    if (!G.act(sim, p, a).ok) return -1e9;
-    settle(sim);
-    if (sim.winner == null && sim.active === p) {
-      playAttacks(sim, p);
-      if (sim.winner == null && sim.active === p && !sim.pending) { G.act(sim, p, { t: 'endTurn' }); settle(sim); }
-    }
-    return evalS(sim, p);
-  }
+  // Médio: a cada passo, testa cada jogada possível (jogar carta, Suporte, mover, habilidade) e faz a que mais melhora a mesa.
+  // Quando nada compensa, ataca e encerra o turno. Energia que sobrar se perde, então ela quase não pesa na avaliação.
   function mediumAction(s, p) {
     const legal = G.legal(s, p);
-    const inAction = s.phase === 'action' && !s.actionUsed;
-    if (inAction) {
-      const cands = legal.filter((a) => a.t !== 'attack' && a.t !== 'endTurn' && a.t !== 'usePerm' && a.t !== 'callEvent' && !(G.RULES.freeSupport && a.t === 'playSup'));
-      let best = null;
-      cands.forEach((a) => {
-        let sc = simulateAction(s, p, a) + Math.random() * 0.8;
-        if (a.t === 'move') sc -= 1.5; // prefere jogar cartas a só reposicionar
-        if (!best || sc > best.sc) best = { a, sc };
-      });
-      if (best) return best.a;
-    }
-    const atk = bestAttack(s, p);
-    if (atk) return atk;
+    const base = evalS(s, p);
+    let best = null;
+    legal.forEach((a) => {
+      if (a.t === 'attack' || a.t === 'endTurn' || a.t === 'usePerm') return;
+      const sim = G.clone(s);
+      if (!G.act(sim, p, a).ok) return;
+      settle(sim);
+      let sc = evalS(sim, p) - base + Math.random() * 0.6;
+      if (a.t === 'move') sc -= 2.2;       // reposicionar só vale se ajudar de verdade
+      if (a.t === 'buySup') sc -= 1.2;
+      if (a.t === 'playSup') sc += 1.8;    // a avaliação de mesa não enxerga cartas, Energia e proteção que os Suportes dão
+      if (!best || sc > best.sc) best = { a, sc };
+    });
+    if (best && best.sc > 0.5) return best.a;
+    // ataques: testa cada um (atacante x alvo) e faz o que mais melhora a mesa; ataque ao herói pesa bastante
+    let bestAtk = null;
+    legal.forEach((a) => {
+      if (a.t !== 'attack') return;
+      const sim = G.clone(s);
+      if (!G.act(sim, p, a).ok) return;
+      settle(sim);
+      const sc = evalS(sim, p) - base + Math.random() * 0.3;
+      if (!bestAtk || sc > bestAtk.sc) bestAtk = { a, sc };
+    });
+    if (bestAtk && bestAtk.sc > 0.4) return bestAtk.a;
     return { t: 'endTurn' };
   }
   function mediumChoice(s, pd) {
@@ -216,24 +215,19 @@
   function easyAction(s, p) {
     const legal = G.legal(s, p);
     const pl = s.players[p];
-    const inAction = s.phase === 'action' && !s.actionUsed;
-    if (inAction) {
-      const plays = legal.filter((a) => a.t === 'playChar');
-      const sups = legal.filter((a) => a.t === 'playSup');
-      if (plays.length && Math.random() < 0.8) {
-        // escolhe a zona primeiro (defende quando está exposto), depois uma carta que caiba nela
-        const nd = pl.def.length, na = pl.atk.length;
-        const pDef = nd === 0 ? 0.7 : nd < na ? 0.5 : nd > na ? 0.25 : 0.38;
-        const r = Math.random();
-        const want = r < 0.08 ? 'apoio' : r < 0.08 + pDef ? 'def' : 'atk';
-        const inZone = plays.filter((a) => a.zone === want);
-        return rand(inZone.length ? inZone : plays.filter((a) => a.zone !== 'apoio').length ? plays.filter((a) => a.zone !== 'apoio') : plays);
-      }
-      if (sups.length && Math.random() < 0.5) return rand(sups);
-      if (legal.some((a) => a.t === 'buySup') && Math.random() < 0.35) return { t: 'buySup' };
-      if (Math.random() < 0.55) return { t: 'pass' };
-      return { t: 'toCombat' };
+    const plays = legal.filter((a) => a.t === 'playChar');
+    const sups = legal.filter((a) => a.t === 'playSup');
+    if (plays.length && Math.random() < 0.8) {
+      // escolhe a zona primeiro (defende quando está exposto), depois uma carta que caiba nela
+      const nd = pl.def.length, na = pl.atk.length;
+      const pDef = nd === 0 ? 0.7 : nd < na ? 0.5 : nd > na ? 0.25 : 0.38;
+      const r = Math.random();
+      const want = r < 0.08 ? 'apoio' : r < 0.08 + pDef ? 'def' : 'atk';
+      const inZone = plays.filter((a) => a.zone === want);
+      return rand(inZone.length ? inZone : plays.filter((a) => a.zone !== 'apoio').length ? plays.filter((a) => a.zone !== 'apoio') : plays);
     }
+    if (sups.length && Math.random() < 0.5) return rand(sups);
+    if (legal.some((a) => a.t === 'buySup') && Math.random() < 0.15) return { t: 'buySup' };
     const attacks = legal.filter((a) => a.t === 'attack');
     if (attacks.length && Math.random() < 0.75) {
       const life = attacks.find((a) => a.target === 'life');
@@ -257,29 +251,6 @@
         return { t: 'choose', v };
       }
       if (s.active !== p) return null;
-      // regra opcional: Suporte grátis (não gasta a Ação) — joga se melhorar a mesa
-      if (G.RULES.freeSupport) {
-        const sups = G.legal(s, p).filter((a) => a.t === 'playSup');
-        if (sups.length && (level === 'easy' ? Math.random() < 0.5 : true)) {
-          if (level === 'easy') return rand(sups);
-          const base = evalS(s, p);
-          let best = null;
-          sups.forEach((a) => {
-            const sim = G.clone(s);
-            if (!G.act(sim, p, a).ok) return;
-            settle(sim);
-            const sc = evalS(sim, p) - base;
-            // Suportes valem mais do que a avaliação de mesa enxerga (cartas, Energia futura, proteção)
-            if (sc > -2.5 && (!best || sc > best.sc)) best = { a, sc };
-          });
-          if (best) return best.a;
-        }
-      }
-      // chamar/trocar Evento é grátis em Ação: a IA só faz de vez em quando e com Energia de sobra
-      if (s.phase === 'action' && !s.actionUsed && G.legal(s, p).some((a) => a.t === 'callEvent')) {
-        const pl = s.players[p];
-        if (pl.energy >= (level === 'easy' ? 4 : 6) && Math.random() < (level === 'easy' ? 0.12 : 0.25)) return { t: 'callEvent' };
-      }
       return level === 'easy' ? easyAction(s, p) : mediumAction(s, p);
     },
     quick, evalS,

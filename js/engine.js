@@ -8,15 +8,19 @@
   const ZN = { atk: 'Ataque', def: 'Defesa', apoio: 'Apoio' };
   const ZI = { atk: '⚔️', def: '🛡️', apoio: '🤝' };
   G.ZN = ZN; G.ZI = ZI; G.LIM = LIM;
-  // custo em Energia para chamar/trocar o Evento (valor impresso nas cartas de Evento); também gasta a Ação
-  G.EVENT_COST = 2;
-  // Variantes de regra (todas desligadas = regras atuais). Usadas para testar balanceamento.
+  // energia máxima (a energia sobe 1 por turno até este valor)
+  G.ENERGY_MAX = 10;
+  // Regras ajustáveis (v4: energia que recarrega).
   G.RULES = {
-    autoEvent: 3,      // o Evento troca sozinho a cada N rodadas completas (0 = desligado)
-    freeSupport: true, // 1 Suporte por turno sem gastar a Ação
-    secondBonus: 1,    // Energia extra do segundo jogador no início
-    supDrawEvery: 2,   // compra automática de 1 Suporte a cada N turnos do próprio jogador (0 = desligado)
-    passGain: 2, legendCost: 0, eventCost: 2,
+    autoEvent: 3,        // o Evento troca sozinho a cada N rodadas completas (0 = desligado)
+    secondBonus: 'coin', // compensação do 2º jogador: 'coin' (⚡+1 só no 1º turno dele) | 'card' (1 Personagem extra) | 'none'
+    fatigueTurn: 80,     // a partir deste turno (global) quem abre o turno perde Vida (evita partidas eternas); 0 = desligado
+    fatigueDmg: 3,
+    supDrawEvery: 2,     // compra automática de 1 Suporte a cada N turnos do próprio jogador (0 = desligado)
+    lifeStart: 25,       // pontos de vida de cada herói
+    heartPts: 5,         // 1 ❤️ impresso nas cartas = 5 pontos de vida ("recupere ❤️1" cura 5)
+    moveCost: 1,         // mover um Personagem custa ⚡ (1x por Personagem por turno)
+    buyCost: 1,          // comprar 1 Suporte custa ⚡
   };
 
   const AE = new Set(['peekReorder2', 'apoioToAtk', 'moveOther', 'peekCharBottom', 'evilynIdol', 'bounceSupport',
@@ -78,7 +82,7 @@
   function gainE(s, p, n) {
     const pl = s.players[p];
     const b = pl.energy;
-    pl.energy = Math.min(8, pl.energy + n);
+    pl.energy = Math.min(G.ENERGY_MAX, pl.energy + n);
     const g = pl.energy - b;
     if (g > 0) fx(s, { t: 'energy', p, n: g });
     return g;
@@ -87,16 +91,16 @@
     if (evKey(s) === 'discussao') { log(s, 'Discussão Generalizada: ninguém pode recuperar ❤️.'); return 0; }
     const pl = s.players[p];
     const b = pl.life;
-    pl.life = Math.min(5, pl.life + n);
+    pl.life = Math.min(G.RULES.lifeStart, pl.life + n * G.RULES.heartPts);
     const g = pl.life - b;
-    if (g > 0) { fx(s, { t: 'heal', p, n: g }); log(s, `${pn(s, p)} recuperou ❤️${g}.`, 'good'); }
+    if (g > 0) { fx(s, { t: 'heal', p, n: g }); log(s, `${pn(s, p)} recuperou ${g} de vida.`, 'good'); }
     return g;
   }
   function loseLife(s, p, n, why) {
     const pl = s.players[p];
     pl.life = Math.max(0, pl.life - n);
     fx(s, { t: 'damage', p, n });
-    log(s, `💔 ${pn(s, p)} perdeu ❤️${n}${why ? ' (' + why + ')' : ''}.`, 'bad');
+    log(s, `💔 ${pn(s, p)} perdeu ${n} de vida${why ? ' (' + why + ')' : ''}.`, 'bad');
     if (pl.life <= 0 && s.winner == null) {
       s.winner = opp(p);
       s.phase = 'over';
@@ -177,6 +181,7 @@
   }
   function stun(s, c, p) {
     if (c.stunned) return false;
+    if (D(c).fx === 'noStunAtk') { log(s, `${nm(c)} não pode ser Atordoada.`); return false; }
     if (c.protStun) { log(s, `${nm(c)} está protegido e não pode ser Atordoado.`); return false; }
     c.stunned = true;
     c.stunT = s.turn;
@@ -221,7 +226,7 @@
   const other = (z) => (z === 'atk' ? 'def' : 'atk');
 
   // ---------------------------------------------------------------- custos
-  function charCost(s, p, c, red) { return Math.max(1, D(c).cost + (D(c).rarity === 'l' ? G.RULES.legendCost : 0) - (red || 0)); }
+  function charCost(s, p, c, red) { return Math.max(1, D(c).cost - (red || 0)); }
   function supCost(s, p, c) { return Math.max(1, D(c).cost - (evKey(s) === 'praia' ? 1 : 0)); }
   function actCost(s, p, c) {
     let k = D(c).ecost;
@@ -318,17 +323,17 @@
 
   // ---------------------------------------------------------------- preparação
   function mkPlayer(name) {
-    return { name, life: 5, energy: 3, hand: [], atk: [], def: [], apoio: [], perms: [], discard: [], noReplay: null };
+    return { name, life: G.RULES.lifeStart, energy: 0, maxE: 0, hand: [], atk: [], def: [], apoio: [], perms: [], discard: [], noReplay: null };
   }
   G.newGame = function (o) {
     o = o || {};
     const s = {
       v: 1, rng: (o.seed != null ? o.seed : Math.floor(Math.random() * 2 ** 31)) | 0, uidN: 0, logN: 0, fxN: 0,
-      turn: 0, active: 0, first: 0, phase: 'setup', actionUsed: false,
+      turn: 0, active: 0, first: 0, phase: 'setup',
       players: [mkPlayer(o.names ? o.names[0] : 'Jogador 1'), mkPlayer(o.names ? o.names[1] : 'Jogador 2')],
       charDeck: [], supDeck: [], evDeck: [], evDiscard: [], event: null,
       queue: [], pending: null, log: [], fx: [], winner: null,
-      lifeLost: false, defeated: 0, lastPlayed: null, resolving: null,
+      defeated: 0, lastPlayed: null, resolving: null,
     };
     const mk = (id) => ({ uid: 'u' + ++s.uidN, id });
     s.charDeck = shuffle(s, G.CHAR_IDS.map(mk));
@@ -342,13 +347,13 @@
       for (let i = 0; i < 4; i++) s.players[p].hand.push(s.charDeck.shift());
       s.players[p].hand.push(s.supDeck.shift());
     }
-    s.players[opp(s.first)].energy += G.RULES.secondBonus;
+    if (G.RULES.secondBonus === 'card') s.players[opp(s.first)].hand.push(s.charDeck.shift());
     s.queue.push({ k: 'setupDone' });
     run(s);
     return s;
   };
   STEP.setupDone = (s) => {
-    // não há Evento no início: os jogadores chamam Eventos gastando a Ação
+    // não há Evento no início: o primeiro entra sozinho no fim da 3ª rodada
     push(s, { k: 'startTurn' });
     s.turn = 1;
   };
@@ -416,38 +421,48 @@
   // ---------------------------------------------------------------- turno
   STEP.startTurn = (s) => {
     const p = s.active, pl = s.players[p];
-    s.phase = 'action';
-    s.actionUsed = false;
+    s.phase = 'main';
     s.defeated = 0;
-    s.lifeLost = false;
     s.lastPlayed = null;
     fx(s, { t: 'turn', p });
     log(s, `— Turno ${s.turn}: ${pn(s, p)} —`, 'turn');
     fieldChars(pl).forEach((c) => {
+      c.dmg = 0; // o dano sofrido nas cartas cura no início do turno do dono
       c.protStun = false;
       c.protMove = false;
       if (c.stunned && c.stunT < s.turn && D(c).fx === 'earlyRecover') unstun(s, c);
     });
+    if (G.RULES.fatigueTurn && s.turn >= G.RULES.fatigueTurn) {
+      log(s, `⏳ Cansaço: a partida se arrasta (turno ${s.turn}).`, 'warn');
+      loseLife(s, p, G.RULES.fatigueDmg, 'Cansaço');
+      if (s.winner != null) return;
+    }
     const casa = hasPerm(s, p, 'casa');
-    if (casa && pl.life === 1) { discardPerm(s, p, casa); log(s, '🏠 Casa da Vó — aqui ninguém morre!'); heal(s, p, 2); }
+    if (casa && pl.life <= G.RULES.heartPts) { discardPerm(s, p, casa); log(s, '🏠 Casa da Vó — aqui ninguém morre!'); heal(s, p, 2); }
     if (s.turn === 1) log(s, `${pn(s, p)} é o primeiro jogador e não compra no primeiro turno.`);
     else drawChar(s, p, true);
     pl.turns = (pl.turns || 0) + 1;
+    // energia: o máximo sobe 1 por turno (até 10) e a energia enche até o máximo; o que sobrou do turno anterior se perde
+    pl.maxE = Math.min(G.ENERGY_MAX, (pl.maxE || 0) + 1);
+    pl.energy = pl.maxE;
+    fx(s, { t: 'energy', p, n: pl.energy });
+    if (pl.turns === 1 && p !== s.first && G.RULES.secondBonus === 'coin') { gainE(s, p, 1); log(s, `${pn(s, p)} jogou em 2º e ganhou uma moeda: ⚡+1 neste turno.`, 'good'); }
+    {
+      const e = evKey(s);
+      if (e === 'caiuPix') { gainE(s, p, 1); log(s, 'Caiu o PIX: ⚡+1 extra neste turno.', 'good'); }
+      if (e === 'naoCaiuPix') { pl.energy = Math.max(1, pl.energy - 1); log(s, 'O PIX Não Caiu: ⚡-1 neste turno.', 'warn'); }
+      if (e === 'noite') fieldChars(pl).forEach((c) => unstun(s, c));
+      const sofa = hasPerm(s, p, 'sofa');
+      if (sofa) { gainE(s, p, 1); log(s, 'Sofá: ⚡+1 extra neste turno.', 'good'); }
+    }
     if (G.RULES.supDrawEvery && pl.turns > 1 && pl.turns % G.RULES.supDrawEvery === 0) {
       if (drawSup(s, p)) log(s, `${pn(s, p)} comprou 1 Suporte (compra automática).`, 'good');
     }
   };
   STEP.endTurn = (s, st) => {
     const p = s.active, pl = s.players[p];
-    if (!st.passed) {
-      const e = evKey(s);
-      const g = e === 'caiuPix' ? 2 : e === 'sono' ? 1 : s.defeated > 0 ? 2 : 1;
-      gainE(s, p, g);
-      log(s, `${pn(s, p)} ganhou ⚡${g} no fim do turno.`);
-    }
     fieldChars(pl).forEach((c) => {
       if (c.stunned && c.stunT < s.turn && D(c).fx !== 'earlyRecover') unstun(s, c);
-      if (c.qm && c.enteredT < s.turn) c.qm = false;
     });
     s.phase = 'end';
     const steps = [];
@@ -470,8 +485,8 @@
     const cost = charCost(s, p, c, o.red);
     pl.energy -= cost;
     const inst = { uid: c.uid, id: c.id, enteredT: s.turn };
-    if (D(c).fx === 'quebraManta') inst.qm = true;
     pl[zone].push(inst);
+    if (evKey(s) === 'sono') { stun(s, inst, p); }
     s.lastPlayed = { uid: c.uid, id: c.id, p };
     fx(s, { t: 'play', uid: c.uid, p, zone });
     log(s, `${pn(s, p)} jogou ${nm(c)} em ${ZI[zone]} ${ZN[zone]} (⚡${cost}).`);
@@ -600,8 +615,8 @@
         if (c) { c.protStun = true; if (d.fx === 'fredMestre') c.protMove = true; fx(s, { t: 'shield', uid: c.uid }); log(s, `🛡️ ${nm(c)} está protegido até o próximo turno de ${pn(s, p)}.`, 'good'); }
         return;
       }
-      case 'healIfLow': if (pl.life <= 2) heal(s, p, 1); return;
-      case 'adeniSanta': heal(s, p, pl.life === 1 ? 2 : 1); return;
+      case 'healIfLow': if (pl.life <= 2 * G.RULES.heartPts) heal(s, p, 1); return;
+      case 'adeniSanta': heal(s, p, pl.life <= G.RULES.heartPts ? 2 : 1); return;
       case 'energyIfLessLife': if (pl.life < op.life) { gainE(s, p, 1); log(s, `${src}: ganhou ⚡1.`, 'good'); } return;
       case 'helsoCoco': if (pl.energy <= 2) { gainE(s, p, 1); log(s, `${src}: ganhou ⚡1.`, 'good'); } return;
       case 'helsoTranquilo': if (zone === 'def' && pl.def.length === 1) { gainE(s, p, 1); log(s, `${src}: único Defensor, ganhou ⚡1.`, 'good'); } return;
@@ -878,7 +893,7 @@
       return;
     }
     const j = hasPerm(s, p, 'jardim');
-    if (!j || pl.life > 2 || evKey(s) === 'discussao') return;
+    if (!j || pl.life > 2 * G.RULES.heartPts || evKey(s) === 'discussao') return;
     if (v === undefined) return ask(s, st, { player: p, kind: 'confirm', title: 'Jardim Milagroso da Dolores', text: 'Descartar o Jardim para recuperar ❤️2?', options: [{ v: 0, id: j.id }], purpose: 'jardim' });
     if (v) { discardPerm(s, p, j); heal(s, p, 2); }
   };
@@ -891,38 +906,44 @@
   function attackTargets(s, p) {
     const o = s.players[opp(p)];
     const t = o.def.map((c) => c.uid).concat(o.atk.map((c) => c.uid));
-    if (!o.def.length && !s.lifeLost && evKey(s) !== 'almoco') t.push('life');
+    if (!o.def.length && evKey(s) !== 'almoco') t.push('life');
     return t;
   }
   G.canAttack = canAttack;
   G.attackTargets = attackTargets;
+  // Combate: o atacante causa o próprio ATK; um Personagem atacado contra-ataca com o ATK dele (ao mesmo tempo).
+  // O dano fica na carta até o início do turno do dono dela (a carta cai quando o dano chega à DEF).
+  // Ataque ao herói tira vida igual ao ATK do atacante e não sofre contra-ataque.
   function resolveAttack(s, p, A, target) {
     const o = opp(p), O = s.players[o];
     A.attackedT = s.turn;
-    s.phase = 'combat';
-    s.actionUsed = true;
     if (target === 'life') {
-      fx(s, { t: 'attack', uid: A.uid, target: 'life', p: o });
-      log(s, `⚔️ ${nm(A)} atacou diretamente!`, 'warn');
-      s.lifeLost = true;
-      loseLife(s, o, 1, 'ataque direto');
+      const dmg = D(A).atk;
+      fx(s, { t: 'attack', uid: A.uid, target: 'life', p: o, a: dmg });
+      log(s, `⚔️ ${nm(A)} atacou ${pn(s, o)} diretamente!`, 'warn');
+      loseLife(s, o, dmg, nm(A));
       return;
     }
     const T = O.def.concat(O.atk).find((c) => c.uid === target);
     const challenge = O.atk.includes(T);
-    const a = D(A).atk, d = D(T).def;
-    fx(s, { t: 'attack', uid: A.uid, target: T.uid, a, d });
-    log(s, `⚔️ ${nm(A)} (⚔️${a}) ${challenge ? 'desafiou' : 'atacou'} ${nm(T)} (🛡️${d}).`);
+    const a = D(A).atk;
+    const t = D(T).atk + (D(T).fx === 'quebraManta' && challenge ? 2 : 0); // contra-ataque
+    fx(s, { t: 'attack', uid: A.uid, target: T.uid, a, d: t });
+    log(s, `⚔️ ${nm(A)} (${a} de ataque) ${challenge ? 'desafiou' : 'atacou'} ${nm(T)}, que contra-atacou com ${t}.`);
     const lastDef = !challenge && O.def.length === 1;
-    let tDown = false, aDown = false;
-    if (a > d) tDown = true;
-    else if (a === d) { tDown = true; aDown = !(challenge && D(A).fx === 'paladino'); if (!aDown) log(s, 'Paladino Nervoso: no empate do Desafio, só o inimigo cai!'); }
-    else aDown = true;
+    T.dmg = (T.dmg || 0) + a;
+    A.dmg = (A.dmg || 0) + t;
+    fx(s, { t: 'hit', uid: T.uid, n: a });
+    fx(s, { t: 'hit', uid: A.uid, n: t });
+    let tDown = T.dmg >= D(T).def;
+    let aDown = A.dmg >= D(A).def;
+    const both = tDown && aDown;
+    if (both && challenge && D(A).fx === 'paladino') { aDown = false; A.dmg = D(A).def - 1; log(s, 'Paladino Nervoso: no empate do Desafio, só o inimigo cai!'); }
     if (aDown) {
       const L = removeFromField(s, A.uid);
       fx(s, { t: 'defeat', uid: A.uid, p });
       log(s, `☠️ ${nm(A)} foi derrotado.`, 'bad');
-      sendDefeated(s, L, { combat: true, toBottom: a === d && D(A).fx === 'helsoPe' });
+      sendDefeated(s, L, { combat: true, toBottom: both && D(A).fx === 'helsoPe' });
     }
     if (tDown) {
       const L = removeFromField(s, T.uid);
@@ -930,18 +951,11 @@
       log(s, `☠️ ${nm(T)} foi derrotado.`, 'bad');
       sendDefeated(s, L, { combat: true, toBottom: challenge && D(A).fx === 'helsoNasa' && !aDown });
       s.defeated++;
-    } else if (a < d) {
-      const immune = (D(T).fx === 'noStunAtk' && O.atk.includes(T)) || (T.qm && O.atk.includes(T));
-      if (immune) log(s, `${nm(T)} não pode ser Atordoado por Investida.`);
-      else stun(s, T, o);
     }
     if (lastDef && tDown) {
       const pe = hasPerm(s, o, 'pe');
       if (pe) { discardPerm(s, o, pe); log(s, '🙏 Pé de Benção da Vó!'); heal(s, o, 1); }
-      if (!aDown) {
-        if (D(T).fx === 'julianaDama') log(s, 'Juliana, Dama da Paciência Infinita cancelou o Rompimento!', 'good');
-        else if (!s.lifeLost) { s.lifeLost = true; fx(s, { t: 'break', p: o }); loseLife(s, o, 1, 'Rompimento'); }
-      }
+      if (D(T).fx === 'julianaDama') { log(s, 'Juliana, Dama da Paciência Infinita: a última Defesa cai, mas a vida volta!', 'good'); heal(s, o, 1); }
     }
     if (tDown && !aDown && s.winner == null) {
       const f = D(A).fx;
@@ -983,119 +997,81 @@
     if (a.t === 'choose') return err('Nada para escolher.');
     if (p !== s.active) return err('Não é o seu turno.');
     const pl = s.players[p];
-    const inAction = s.phase === 'action' && !s.actionUsed;
-    const inTurn = s.phase === 'action' || s.phase === 'combat';
+    if (s.phase !== 'main') return err('Agora não.');
     switch (a.t) {
       case 'playChar': {
-        if (!inAction) return err('Você já usou sua Ação.');
         const c = pl.hand.find((x) => x.uid === a.uid);
         if (!c || D(c).type !== 'char') return err('Carta inválida.');
         if (!LIM[a.zone] || !space(s, p, a.zone)) return err('Sem espaço nessa zona.');
         if (pl.noReplay && pl.noReplay.uid === c.uid && pl.noReplay.t === s.turn) return err('Esse Personagem não pode ser jogado de novo neste turno.');
         if (pl.energy < charCost(s, p, c)) return err('Energia insuficiente.');
-        s.actionUsed = true; s.phase = 'combat';
         playChar(s, p, c.uid, a.zone);
         break;
       }
       case 'playSup': {
-        if (G.RULES.freeSupport) {
-          if (!inTurn || pl.supT === s.turn) return err('Você já jogou um Suporte neste turno.');
-        } else if (!inAction) return err('Você já usou sua Ação.');
         const c = pl.hand.find((x) => x.uid === a.uid);
         if (!c || D(c).type !== 'sup') return err('Carta inválida.');
         if (pl.energy < supCost(s, p, c)) return err('Energia insuficiente.');
-        if (G.RULES.freeSupport) pl.supT = s.turn;
-        else { s.actionUsed = true; s.phase = 'combat'; }
         playSup(s, p, c.uid);
         break;
       }
       case 'buySup': {
-        if (!inAction) return err('Você já usou sua Ação.');
         if (pl.hand.length >= 7) return err('Mão cheia (7 cartas).');
+        if (pl.energy < G.RULES.buyCost) return err(`Comprar um Suporte custa ⚡${G.RULES.buyCost}.`);
         if (!s.supDeck.length) refillSup(s);
         if (!s.supDeck.length) return err('Não há Suportes para comprar.');
-        s.actionUsed = true; s.phase = 'combat';
-        log(s, `${pn(s, p)} comprou 1 Suporte.`);
+        pl.energy -= G.RULES.buyCost;
+        log(s, `${pn(s, p)} comprou 1 Suporte (⚡${G.RULES.buyCost}).`);
         if (fieldChars(pl).some((c) => D(c).fx === 'jonesPets')) push(s, { k: 'pickToHand', p, deck: 'sup', n: 2 });
         else drawSup(s, p);
         break;
       }
-      case 'callEvent': {
-        if (!inTurn) return err('Agora não.');
-        if (pl.evT === s.turn) return err('Você já chamou um Evento neste turno.');
-        if (pl.energy < G.RULES.eventCost) return err(`Chamar um Evento custa ⚡${G.RULES.eventCost}.`);
-        if (!s.evDeck.length && !s.evDiscard.length) return err('Não há Eventos disponíveis.');
-        pl.evT = s.turn;
-        pl.energy -= G.RULES.eventCost;
-        log(s, `🌟 ${pn(s, p)} ${s.event ? 'trocou o Evento' : 'chamou um Evento'} (⚡${G.RULES.eventCost}).`, 'event');
-        push(s, { k: 'revealEvent' });
-        break;
-      }
       case 'move': {
-        if (!inAction) return err('Você já usou sua Ação.');
-        if (evKey(s) === 'temporal') return err('Temporal de Domingo: a Ação de mover está bloqueada.');
+        if (evKey(s) === 'temporal') return err('Temporal de Domingo: mover Personagens está bloqueado.');
         const L = locate(s, a.uid);
         if (!L || L.p !== p || !LIM[L.z]) return err('Carta inválida.');
         if (L.card.stunned) return err('Personagem Atordoado não pode se mover.');
+        if (L.card.movedT === s.turn) return err('Esse Personagem já foi movido neste turno.');
         if (!LIM[a.zone] || a.zone === L.z || !space(s, p, a.zone)) return err('Sem espaço nessa zona.');
-        s.actionUsed = true; s.phase = 'combat';
+        if (pl.energy < G.RULES.moveCost) return err(`Mover custa ⚡${G.RULES.moveCost}.`);
+        pl.energy -= G.RULES.moveCost;
         moveTo(s, a.uid, a.zone);
         L.card.movedT = s.turn;
         break;
       }
       case 'activate': {
-        if (!inAction) return err('Você já usou sua Ação.');
         if (evKey(s) === 'festa') return err('Festa da Família: habilidades Ativáveis bloqueadas.');
         const L = locate(s, a.uid);
         if (!L || L.p !== p || !LIM[L.z] || !D(L.card).activatable) return err('Carta inválida.');
         if (L.card.stunned) return err('Personagem Atordoado não pode usar habilidades.');
+        if (L.card.actT === s.turn) return err('Essa habilidade já foi usada neste turno.');
         const cost = actCost(s, p, L.card);
         if (pl.energy < cost) return err('Energia insuficiente.');
         if (!actTargets(s, p, L.card).length) return err('Não há alvo válido para essa habilidade.');
         if (hasPerm(s, p, 'cristal') && pl.cristalT !== s.turn) pl.cristalT = s.turn;
         pl.energy -= cost;
-        s.actionUsed = true; s.phase = 'combat';
+        L.card.actT = s.turn;
         log(s, `✨ ${pn(s, p)} ativou ${nm(L.card)} (⚡${cost}).`);
         fx(s, { t: 'activate', uid: L.card.uid });
         push(s, { k: 'act', p, uid: L.card.uid });
         break;
       }
       case 'usePerm': {
-        if (!inTurn) return err('Agora não.');
         const c = pl.perms.find((x) => x.uid === a.uid);
         if (!c || D(c).fx !== 'porta' || !fieldChars(pl).length) return err('Não dá para usar agora.');
         push(s, { k: 'porta', p });
         break;
       }
-      case 'toCombat':
-        if (s.phase !== 'action') return err('Agora não.');
-        s.phase = 'combat'; s.actionUsed = true;
-        log(s, `${pn(s, p)} não usou Ação e foi para o combate.`);
-        break;
       case 'attack': {
-        if (!inTurn) return err('Agora não.');
         const A = pl.atk.find((x) => x.uid === a.uid);
         if (!A || !canAttack(s, p, A)) return err('Esse Personagem não pode atacar agora.');
         if (!attackTargets(s, p).includes(a.target)) return err('Alvo inválido.');
         resolveAttack(s, p, A, a.target);
         break;
       }
-      case 'pass': {
-        if (!inAction) return err('Só dá para Passar antes de usar a Ação.');
-        let g = hasPerm(s, p, 'sofa') ? 3 : G.RULES.passGain;
-        const e = evKey(s);
-        if (e === 'noite') g = 3;
-        if (e === 'naoCaiuPix') g = 1;
-        g = Math.min(3, g);
-        s.actionUsed = true; s.phase = 'end';
-        gainE(s, p, g);
-        log(s, `💤 ${pn(s, p)} passou a vez e ganhou ⚡${g}.`);
-        push(s, { k: 'afterPass', p, what: 'bill' }, { k: 'afterPass', p, what: 'jardim' }, { k: 'endTurn', passed: true });
-        break;
-      }
       case 'endTurn':
-        if (!inTurn) return err('Agora não.');
-        push(s, { k: 'endTurn' });
+        // gatilhos de "fim do turno" (Bill, Jardim da Dolores) e depois a troca de turno
+        push(s, { k: 'afterPass', p, what: 'bill' }, { k: 'afterPass', p, what: 'jardim' }, { k: 'endTurn' });
         break;
       default:
         return err('Ação desconhecida.');
@@ -1107,42 +1083,30 @@
   // Todas as ações possíveis agora (usado pela IA e pela interface).
   G.legal = function (s, p) {
     const out = [];
-    if (s.winner != null || s.pending || p !== s.active) return out;
+    if (s.winner != null || s.pending || p !== s.active || s.phase !== 'main') return out;
     const pl = s.players[p];
-    const inAction = s.phase === 'action' && !s.actionUsed;
-    const inTurn = s.phase === 'action' || s.phase === 'combat';
-    if (inAction) {
-      pl.hand.forEach((c) => {
-        const d = D(c);
-        if (d.type === 'char') {
-          if (pl.noReplay && pl.noReplay.uid === c.uid && pl.noReplay.t === s.turn) return;
-          if (pl.energy < charCost(s, p, c)) return;
-          ['atk', 'def', 'apoio'].forEach((z) => { if (space(s, p, z)) out.push({ t: 'playChar', uid: c.uid, zone: z }); });
-        } else if (pl.energy >= supCost(s, p, c) && !G.RULES.freeSupport) out.push({ t: 'playSup', uid: c.uid });
-      });
-      if (pl.hand.length < 7 && (deckN(s, 'sup') || s.players.some((x) => x.discard.some((c) => D(c).type === 'sup')))) out.push({ t: 'buySup' });
-      if (evKey(s) !== 'temporal') {
-        ['atk', 'def', 'apoio'].forEach((z) => pl[z].forEach((c) => {
-          if (c.stunned) return;
-          ['atk', 'def', 'apoio'].forEach((z2) => { if (z2 !== z && space(s, p, z2)) out.push({ t: 'move', uid: c.uid, zone: z2 }); });
-        }));
-      }
-      if (evKey(s) !== 'festa') fieldChars(pl).forEach((c) => {
-        if (D(c).activatable && !c.stunned && pl.energy >= actCost(s, p, c) && actTargets(s, p, c).length) out.push({ t: 'activate', uid: c.uid });
-      });
-      out.push({ t: 'pass' });
-      out.push({ t: 'toCombat' });
+    pl.hand.forEach((c) => {
+      const d = D(c);
+      if (d.type === 'char') {
+        if (pl.noReplay && pl.noReplay.uid === c.uid && pl.noReplay.t === s.turn) return;
+        if (pl.energy < charCost(s, p, c)) return;
+        ['atk', 'def', 'apoio'].forEach((z) => { if (space(s, p, z)) out.push({ t: 'playChar', uid: c.uid, zone: z }); });
+      } else if (pl.energy >= supCost(s, p, c)) out.push({ t: 'playSup', uid: c.uid });
+    });
+    if (pl.hand.length < 7 && pl.energy >= G.RULES.buyCost && (deckN(s, 'sup') || (evKey(s) !== 'treta' && s.players.some((x) => x.discard.some((c) => D(c).type === 'sup'))))) out.push({ t: 'buySup' });
+    if (evKey(s) !== 'temporal' && pl.energy >= G.RULES.moveCost) {
+      ['atk', 'def', 'apoio'].forEach((z) => pl[z].forEach((c) => {
+        if (c.stunned || c.movedT === s.turn) return;
+        ['atk', 'def', 'apoio'].forEach((z2) => { if (z2 !== z && space(s, p, z2)) out.push({ t: 'move', uid: c.uid, zone: z2 }); });
+      }));
     }
-    if (inTurn && G.RULES.freeSupport && pl.supT !== s.turn) {
-      pl.hand.forEach((c) => { if (D(c).type === 'sup' && pl.energy >= supCost(s, p, c)) out.push({ t: 'playSup', uid: c.uid }); });
-    }
-    if (inTurn && pl.evT !== s.turn && pl.energy >= G.RULES.eventCost && (deckN(s, 'ev') || s.evDiscard.length)) out.push({ t: 'callEvent' });
-    if (inTurn) {
-      const tg = attackTargets(s, p);
-      pl.atk.forEach((c) => { if (canAttack(s, p, c)) tg.forEach((t) => out.push({ t: 'attack', uid: c.uid, target: t })); });
-      pl.perms.forEach((c) => { if (D(c).fx === 'porta' && fieldChars(pl).length) out.push({ t: 'usePerm', uid: c.uid }); });
-      out.push({ t: 'endTurn' });
-    }
+    if (evKey(s) !== 'festa') fieldChars(pl).forEach((c) => {
+      if (D(c).activatable && !c.stunned && c.actT !== s.turn && pl.energy >= actCost(s, p, c) && actTargets(s, p, c).length) out.push({ t: 'activate', uid: c.uid });
+    });
+    const tg = attackTargets(s, p);
+    pl.atk.forEach((c) => { if (canAttack(s, p, c)) tg.forEach((t) => out.push({ t: 'attack', uid: c.uid, target: t })); });
+    pl.perms.forEach((c) => { if (D(c).fx === 'porta' && fieldChars(pl).length) out.push({ t: 'usePerm', uid: c.uid }); });
+    out.push({ t: 'endTurn' });
     return out;
   };
 
