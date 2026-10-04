@@ -33,7 +33,6 @@
       t: 'Preparação',
       body: `<ul><li>Cada jogador começa com <b>25 de vida</b> (1 ❤️ nas cartas = 5 pontos). No <b>primeiro turno de cada um só existe ⚡1</b> e nenhum efeito dá energia extra.</li>
         <li>Compre <b>4 Personagens</b> e <b>2 Suportes</b> — sem escolher nem devolver, todos <b>baratos (até ⚡3)</b>. Sua mão sempre tem <b>pelo menos 1 Personagem de custo ⚡1</b>.</li>
-        <li>Para compensar quem começa, o <b>segundo jogador ganha ⚡+3 no 2º turno dele</b>.</li>
         <li><b>Só recebemos cartas que dá para jogar</b>: as compras seguem a sua energia (no turno 5, só vêm cartas de custo até ⚡5, quando houver). Cartas fortes chegam conforme a energia sobe.</li>
         <li>A partida começa <b>sem Evento</b>. O sorteio decide quem começa (as duas posições são equilibradas).</li>
         <li>Quem começa <b>não compra</b> carta no seu primeiro turno.</li></ul>`,
@@ -126,6 +125,7 @@
         <li>Para atacar, toque num Personagem seu <b>brilhando em laranja</b> e depois no <b>alvo 🎯</b> (ou no retrato do adversário, quando ele não tem Defensores).</li>
         <li><b>Segure o dedo</b> (ou clique com o botão direito) em qualquer carta para <b>ampliar</b> e ler o texto.</li>
         <li>No computador, deixe o mouse parado em cima de uma carta para ver ela grande.</li>
+        <li><b>Série:</b> quem vencer <b>2 partidas seguidas</b> leva a série, e os lados trocam a cada partida (quem começou joga em segundo na seguinte).</li>
         <li>Botões no meio da mesa: <b>Comprar Suporte</b> e <b>Encerrar turno</b> (vira <b>Pular turno</b> quando não há jogadas).</li>
         <li>Toque numa carta da mão e use <b>♻️ Descartar e comprar</b> (⚡1, 1 vez por turno) para trocar uma carta ruim por outra do mesmo tipo.</li></ul>
         <div class="btns" style="justify-content:flex-start;margin-top:14px"><button class="btn gold" id="tut-practice">🎓 Praticar com dicas</button></div>`,

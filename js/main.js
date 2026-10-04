@@ -25,6 +25,7 @@
     sparks.running = id !== 'game';
     if (id === 'tutorial') G.Tutorial.open();
     if (id === 'collection') renderCollection();
+    if (id === 'solo') paintResume();
     if (id === 'game') requestAnimationFrame(() => UI.layout());
   };
   G.show = show;
@@ -135,17 +136,19 @@
   coachToggle.checked = store.get('coach', '1') === '1';
   coachToggle.onchange = () => store.set('coach', coachToggle.checked ? '1' : '0');
   $$('.diff').forEach((b) => { b.onclick = () => G.startSolo(b.dataset.level, coachToggle.checked); });
+  $('#btn-resume').onclick = () => G.resumeSolo();
 
   G.debug = () => game;
-  G.startSolo = function (level, coach) {
+  G.startSolo = function (level, coach, prevState) {
     clearTimeout(aiTimer);
     G.Net.close();
     const others = AVATARS.filter((a) => a !== myAvatar);
-    const aiAvatar = others[Math.floor(Math.random() * others.length)];
-    const aiName = famOf(aiAvatar) + (level === 'easy' ? ' 🤖' : ' 🤖🤖');
-    const s = G.newGame({ names: [myName(), aiName] });
+    const keep = prevState && G.nextGameOpts(prevState).series && game && game.avatars && game.avatars[1]; // na mesma série o adversário é o mesmo
+    const aiAvatar = keep || others[Math.floor(Math.random() * others.length)];
+    const aiName = famOf(aiAvatar) + (level === 'easy' ? ' 🤖' : level === 'hard' ? ' 🤖🤖🤖' : ' 🤖🤖');
+    const s = G.newGame(Object.assign({ names: [myName(), aiName] }, G.nextGameOpts(prevState)));
     const token = {};
-    game = { mode: 'ai', level, s, token, avatars: [myAvatar, aiAvatar] };
+    game = { mode: 'ai', level, coach, s, token, avatars: [myAvatar, aiAvatar] };
     G.Coach.enable(coach);
     G.Music.sync.disable();
     document.body.classList.remove('online');
@@ -161,16 +164,68 @@
       send: game.send,
       onExit: exitGame,
       meme: (id) => G.Memes.play(id, myName()),
-      onRematch: () => G.startSolo(level, coach),
+      onRematch: () => G.startSolo(level, coach, game && game.s),
       emote: (e) => {
         UI.showEmote(e);
         if (Math.random() < 0.6) setTimeout(() => UI.showEmote(['😎', '🤔', '😂', '🙏', '😱'][Math.floor(Math.random() * 5)]), 1300);
       },
     });
+    if (s.series && s.series.res.length) UI.toast(`Série: partida ${s.series.res.length + 1} · você ${s.series.w[0]} × ${s.series.w[1]} · ${s.first === 0 ? 'você começa' : aiName + ' começa'}`, '', 3800);
+    publish();
+  };
+  // ---- partida contra o computador fica salva no aparelho: dá para sair e continuar depois
+  const SAVE_KEY = 'jf-solo', SAVE_VER = 'v5';
+  function saveSolo() {
+    try {
+      if (!game || game.mode !== 'ai') return;
+      if (game.s.winner != null) { localStorage.removeItem(SAVE_KEY); return; }
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ ver: SAVE_VER, level: game.level, coach: game.coach, avatars: game.avatars, s: game.s, at: Date.now() }));
+    } catch (e) { /* armazenamento indisponível: segue sem salvar */ }
+  }
+  function readSave() {
+    try {
+      const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+      if (!d || d.ver !== SAVE_VER || !d.s || d.s.winner != null) return null;
+      return d;
+    } catch (e) { return null; }
+  }
+  function paintResume() {
+    const b = $('#btn-resume'), d = readSave();
+    if (!b) return;
+    b.classList.toggle('hidden', !d);
+    if (d) b.innerHTML = `▶ Continuar partida salva <small>(${d.level === 'easy' ? 'Fácil' : d.level === 'hard' ? 'Difícil' : 'Médio'} · turno ${d.s.turn} · você ${d.s.players[0].life} ❤️ × ${d.s.players[1].life})</small>`;
+  }
+  G.resumeSolo = function () {
+    const d = readSave();
+    if (!d) { paintResume(); return; }
+    clearTimeout(aiTimer);
+    G.Net.close();
+    const token = {};
+    game = { mode: 'ai', level: d.level, coach: d.coach, s: d.s, token, avatars: d.avatars };
+    G.Coach.enable(false);
+    G.Music.sync.disable();
+    document.body.classList.remove('online');
+    show('game');
+    G.Music.start();
+    game.send = (a) => {
+      const r = G.act(game.s, 0, a);
+      if (!r.ok) { UI.toast(r.err, 'err'); G.sfx('error'); return; }
+      publish();
+    };
+    UI.start({
+      me: 0, mode: 'ai', avatars: game.avatars,
+      send: game.send,
+      onExit: exitGame,
+      meme: (id) => G.Memes.play(id, myName()),
+      onRematch: () => G.startSolo(d.level, d.coach, game && game.s),
+      emote: (e) => UI.showEmote(e),
+    });
+    UI.toast('Partida retomada de onde você parou. 🎮', '', 2600);
     publish();
   };
   function publish() {
     if (!game || game.mode !== 'ai') return;
+    saveSolo();
     const token = game.token;
     UI.update(G.viewFor(game.s, 0)).then(() => { if (game && game.token === token) aiTick(); });
   }
@@ -291,7 +346,7 @@
     }
   }
   function hostNewGame() {
-    const s = G.newGame({ names: [myName(), game.guest.name] });
+    const s = G.newGame(Object.assign({ names: [myName(), game.guest.name] }, G.nextGameOpts(game.s)));
     game.s = s;
     game.id = Math.random().toString(36).slice(2);
     game.avatars = [myAvatar, game.guest.avatar];

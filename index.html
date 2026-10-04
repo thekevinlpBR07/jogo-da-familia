@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=63">
+  <link rel="stylesheet" href="css/style.css?v=81">
 </head>
 <body>
   <canvas id="sparks"></canvas>
@@ -32,7 +32,7 @@
           </label>
         </div>
         <div class="menu-grid">
-          <button class="btn gold big" data-go="solo"><i>🤖</i><b>Contra o Computador</b><small>Fácil ou Médio · offline</small></button>
+          <button class="btn gold big" data-go="solo"><i>🤖</i><b>Contra o Computador</b><small>Fácil, Médio ou Difícil · offline</small></button>
           <button class="btn gold big" data-go="online"><i>🌐</i><b>Jogar Online</b><small>Crie uma sala e mande o código</small></button>
           <button class="btn big" data-go="tutorial"><i>📖</i><b>Tutorial</b><small>Aprenda em 3 minutos</small></button>
           <button class="btn big" data-go="collection"><i>🃏</i><b>Coleção</b><small>Todas as 119 cartas</small></button>
@@ -48,6 +48,7 @@
     <!-- ============================== SOLO -->
     <section id="solo" class="screen">
       <header class="screen-head"><button class="btn back" data-go="menu">← Voltar</button><h2>Contra o Computador</h2></header>
+      <button class="btn gold big hidden" id="btn-resume" style="margin:0 auto 14px;display:block"></button>
       <div class="diff-grid">
         <button class="diff glass" data-level="easy">
           <div class="diff-art" style="--img:url(../assets/cards/personagens/29.webp)"></div>
@@ -60,6 +61,12 @@
           <h3>Médio</h3>
           <p>Planeja cada jogada, protege a Vida, escolhe bem os alvos e aproveita os efeitos das cartas.</p>
           <span class="stars">★★☆</span>
+        </button>
+        <button class="diff glass" data-level="hard">
+          <div class="diff-art" style="--img:url(../assets/cards/personagens/60.webp)"></div>
+          <h3>Difícil</h3>
+          <p>Planeja o turno inteiro, testa várias sequências de jogadas e antecipa a resposta do adversário. Joga só com o que você também pode ver: sem espiar sua mão nem as próximas cartas.</p>
+          <span class="stars">★★★</span>
         </button>
       </div>
       <label class="toggle glass"><input type="checkbox" id="coach-toggle"><span></span> Mostrar dicas durante a partida (recomendado na primeira vez)</label>
@@ -159,16 +166,16 @@
   <div id="preview" class="preview"></div>
 
   <script src="js/vendor/peerjs.min.js"></script>
-  <script src="js/cards.js?v=63"></script>
-  <script src="js/engine.js?v=63"></script>
-  <script src="js/ai.js?v=63"></script>
-  <script src="js/sfx.js?v=63"></script>
-  <script src="js/music.js?v=63"></script>
-  <script src="js/memes.js?v=63"></script>
-  <script src="js/voice.js?v=63"></script>
-  <script src="js/ui.js?v=63"></script>
-  <script src="js/net.js?v=63"></script>
-  <script src="js/tutorial.js?v=63"></script>
-  <script src="js/main.js?v=63"></script>
+  <script src="js/cards.js?v=81"></script>
+  <script src="js/engine.js?v=81"></script>
+  <script src="js/ai.js?v=81"></script>
+  <script src="js/sfx.js?v=81"></script>
+  <script src="js/music.js?v=81"></script>
+  <script src="js/memes.js?v=81"></script>
+  <script src="js/voice.js?v=81"></script>
+  <script src="js/ui.js?v=81"></script>
+  <script src="js/net.js?v=81"></script>
+  <script src="js/tutorial.js?v=81"></script>
+  <script src="js/main.js?v=81"></script>
 </body>
 </html>

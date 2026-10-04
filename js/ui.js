@@ -474,7 +474,7 @@
       box.classList.remove('active');
     } else {
       const d = C[V.event];
-      box.innerHTML = `<div class="evb-title">🌟 ${esc(d.name)}</div><div class="evb-card" style="background-image:url(${d.img})"></div><div class="evb-note">${esc(evCountdown())}</div>`;
+      box.innerHTML = `<div class="evb-title">🌟 ${esc(d.name)}</div><div class="evb-card" style="background-image:url(${d.img})"></div><div class="evb-text">${esc(d.text)}</div><div class="evb-note">${esc(evCountdown())}</div>`;
       box.onclick = () => UI.zoom(V.event);
       box.classList.add('active');
     }
@@ -489,12 +489,15 @@
     const cw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cw')) || 96;
     // espaço livre à direita do campo
     const free = board.clientWidth - (field.offsetLeft + field.offsetWidth) - 10;
-    const w = Math.min(free, cw * 1.65);
+    const w = Math.min(free, cw * 3.2); // o Evento usa todo o espaço livre ao lado do campo
     const side = $('#event-box');
     if (w < cw * 1.05) { box.style.display = 'none'; mid.style.paddingRight = ''; if (side) side.style.display = ''; return; }
     if (side) side.style.display = 'none'; // evita mostrar o mesmo Evento duas vezes
     box.style.display = 'flex';
     box.style.width = w + 'px';
+    box.style.setProperty('--evw', w + 'px');
+    box.classList.remove('compact');
+    if (box.offsetHeight > board.clientHeight - 16) box.classList.add('compact'); // sem altura para o texto: mostra só nome e carta
     const right = Math.max(6, Math.min(free - w, 18));
     box.style.right = right + 'px';
     mid.style.paddingRight = (w + right + 10) + 'px'; // os botões não passam por baixo do card
@@ -758,7 +761,7 @@
     if (pl.energy < cost) return `custa ⚡${cost} e você tem ⚡${pl.energy}.`;
     if (d.fx === 'actUnstun') return 'precisa ter outro Personagem seu Atordoado para recuperar.';
     if (d.fx === 'actUnstunDef') return 'precisa ter outro Defensor seu (🛡️) Atordoado para recuperar.';
-    if (d.fx === 'actPeek') return 'o baralho de Personagens está vazio.';
+    if (d.fx === 'actDraw') return 'o baralho de Personagens está vazio ou sua mão está cheia.';
     return 'não há alvo válido.';
   }
 
@@ -940,12 +943,21 @@
     const win = V.winner === me;
     if (!G.Music.jingle(win ? 'vitoria' : 'derrota')) G.sfx(win ? 'win' : 'lose');
     const w = V.players[V.winner];
+    const sr = V.series || { w: [0, 0], res: [], champ: null };
+    const placar = `Você ${sr.w[me]} × ${sr.w[1 - me]} ${esc(V.players[1 - me].name)}`;
+    const done = sr.champ != null, champWin = sr.champ === me;
+    const nextFirst = V.first === me ? esc(V.players[1 - me].name) : 'você';
+    const head = done ? (champWin ? 'Série vencida!' : 'Série perdida') : win ? 'Vitória!' : 'Derrota';
+    const sub = done
+      ? (champWin ? 'Duas vitórias seguidas: a série é sua! 🏅' : `${esc(V.players[sr.champ].name)} venceu 2 partidas seguidas e levou a série.`)
+      : (win ? 'A família se curva diante de você!' : `${esc(w.name)} venceu desta vez. Revanche?`);
     const m = UI.modal(`<div class="end-screen ${win ? '' : 'lose'}">
-      <div class="crown">${win ? '👑' : '🥈'}</div>
-      <h2>${win ? 'Vitória!' : 'Derrota'}</h2>
-      <p class="sub">${win ? 'A família se curva diante de você!' : `${esc(w.name)} venceu desta vez. Revanche?`}</p>
-      <p class="sub">Partida decidida no turno ${V.turn}.</p>
-      <div class="btns">${ctl.onRematch ? '<button class="btn gold" data-re>🔁 Jogar de novo</button>' : ''}<button class="btn" data-board>Ver a mesa</button><button class="btn" data-menu>Menu principal</button></div>
+      <div class="crown">${done ? (champWin ? '🏆' : '🥈') : win ? '👑' : '🥈'}</div>
+      <h2>${head}</h2>
+      <p class="sub">${sub}</p>
+      <p class="sub"><b>Série:</b> ${placar}. Partida decidida no turno ${V.turn}.</p>
+      ${done ? '' : `<p class="sub">Quem vencer 2 partidas seguidas leva a série. Na próxima, os lados trocam: ${nextFirst === 'você' ? 'você começa' : nextFirst + ' começa'}.</p>`}
+      <div class="btns">${ctl.onRematch ? `<button class="btn gold" data-re>${done ? '🔁 Nova série' : '▶ Próxima partida'}</button>` : ''}<button class="btn" data-board>Ver a mesa</button><button class="btn" data-menu>Menu principal</button></div>
     </div>`, { dismiss: false });
     const re = $('[data-re]', m);
     if (re) re.onclick = () => { m.close(); ctl.onRematch(); };
@@ -981,7 +993,8 @@
     if (hear) hear.onclick = () => { G.Voice.setHear(!G.Voice.hearOn); hear.textContent = G.Voice.hearOn ? '🔊 Ouvindo o outro jogador' : '🔇 Voz do outro: silenciada'; };
     $('[data-quit]', m).onclick = () => {
       m.close();
-      const c = UI.modal('<h3>Sair da partida?</h3><p class="sub">O progresso desta partida será perdido.</p><div class="btns"><button class="btn wine" data-y>Sair</button><button class="btn" data-n>Ficar</button></div>');
+      const solo = ctl.mode === 'ai';
+      const c = UI.modal(`<h3>Sair da partida?</h3><p class="sub">${solo ? 'Sua partida fica salva neste aparelho: dá para continuar depois em <b>Contra o Computador</b>.' : 'O progresso desta partida será perdido.'}</p><div class="btns"><button class="btn wine" data-y>Sair</button><button class="btn" data-n>Ficar</button></div>`);
       $('[data-y]', c).onclick = () => { c.close(); ctl.onExit(); };
       $('[data-n]', c).onclick = () => c.close();
     };
@@ -1069,14 +1082,14 @@
   UI.rules = function () {
     const m = UI.modal(`<h3>Regras rápidas</h3><div class="rules-doc">
       <h4>Objetivo</h4><p>Reduza a vida do adversário de <b>25 para 0</b>. (Nas cartas, 1 ❤️ = 5 pontos de vida: "recupere ❤️1" cura 5.)</p>
-      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 2 Suportes na mão (ninguém escolhe nem devolve cartas), todos baratos: custo até ⚡3. A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de cada jogador só existe ⚡1</b> e nenhum efeito dá energia extra. Para compensar a vantagem de quem começa, o <b>segundo jogador ganha ⚡+3 no 2º turno dele</b>. Todo mundo começa com pelo menos 1 Personagem de custo ⚡1. <b>Só recebemos cartas que dá para jogar:</b> cada carta comprada é a primeira do baralho cujo custo cabe na sua energia daquele turno (as caras só chegam quando você já tem energia para elas).</p>
+      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 2 Suportes na mão (ninguém escolhe nem devolve cartas), todos baratos: custo até ⚡3. A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de cada jogador só existe ⚡1</b> e nenhum efeito dá energia extra. Todo mundo começa com pelo menos 1 Personagem de custo ⚡1. <b>Só recebemos cartas que dá para jogar:</b> cada carta comprada é a primeira do baralho cujo custo cabe na sua energia daquele turno (as caras só chegam quando você já tem energia para elas).</p>
       <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡10</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 10.</p>
       <h4>Campo</h4><table><tr><th>Zona</th><th>Limite</th><th>Função</th></tr>
       <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram).</td></tr>
       <tr><td>🛡️ Defesa</td><td>3</td><td>Protegem a sua vida: enquanto existir um Defensor, o herói não pode ser atacado.</td></tr>
       <tr><td>🤝 Apoio</td><td>2</td><td>Não atacam nem defendem. Só podem ser atacados quando o adversário não tem Defensores. Ativam efeitos 🤝.</td></tr>
       <tr><td>🛠️ Suportes</td><td>2</td><td>Suportes Permanentes ficam aqui.</td></tr></table>
-      <h4>Turno</h4><p><b>COMPRE</b> 1 Personagem (se tiver menos de 7 cartas) → faça o que quiser com sua energia, em qualquer ordem: <b>jogar Personagens e Suportes</b>, <b>comprar 1 Suporte</b> (⚡1), <b>mover</b> um Personagem (⚡1, uma vez por Personagem), usar <b>habilidades Ativáveis</b> (uma vez por turno cada), e <b>atacar</b> com cada Personagem pronto → <b>ENCERRE</b> o turno. A cada 2 turnos seus você também compra 1 Suporte automaticamente.</p>
+      <h4>Turno</h4><p><b>COMPRE</b> 1 Personagem (se tiver menos de 7 cartas) → faça o que quiser com sua energia, em qualquer ordem: <b>jogar Personagens e Suportes</b>, <b>comprar 1 Suporte</b> (⚡1, uma vez por turno), <b>mover</b> um Personagem (⚡1, uma vez por Personagem), usar <b>habilidades Ativáveis</b> (uma vez por turno cada), e <b>atacar</b> com cada Personagem pronto → <b>ENCERRE</b> o turno. A cada 2 turnos seus você também compra 1 Suporte automaticamente.</p>
       <h4>Combate</h4><p>O atacante causa o próprio ⚔️ de dano. Um Personagem atacado <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo. O dano fica na carta até o <b>início do turno do dono dela</b>, e a carta cai quando o dano chega à sua 🛡️. Dá para combinar vários ataques para derrubar um alvo.</p>
       <p>Contra um herói com Defensores, ataque os Defensores. <b>Desafio</b>: atacar um Personagem do Ataque inimigo. Sem Defensores, <b>todos os seus atacantes podem atacar o herói</b> (cada um tirando vida igual ao seu ⚔️, sem contra-ataque) <b>ou os Personagens em 🤝 Apoio</b>.</p>
       <h4>Descartar e comprar</h4><p>Uma vez por turno, pague <b>⚡1</b> para descartar 1 carta da mão e comprar 1 do mesmo tipo (Personagem por Personagem, Suporte por Suporte). Serve para trocar uma carta que não dá para jogar.</p>
@@ -1085,6 +1098,7 @@
       <h4>Atordoado</h4><p>Efeitos de cartas podem Atordoar: não ataca, não usa Ativável, não se move. Continua defendendo. Recupera no fim do próximo turno do dono.</p>
       <h4>Limites</h4><p>Mão: 7 cartas · Energia: ⚡10 · Vida: 25 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>
       <h4>Eventos</h4><p>No máximo 1 Evento fica ativo e ele <b>troca sozinho a cada 3 rodadas</b> (o primeiro entra no fim da 3ª). Ninguém compra nem troca Eventos.</p>
+      <h4>Série (melhor de 2 seguidas)</h4><p>Uma série é formada por várias partidas: <b>quem vencer 2 partidas seguidas leva a série</b>. A cada partida os lados trocam: quem começou agora joga em segundo, e vice-versa. Se cada um vencer uma, joga-se a próxima, até alguém vencer duas em sequência.</p>
       <h4>Cansaço</h4><p>Se a partida passar do <b>turno 80</b> (cerca de 40 rodadas), quem começa o turno perde <b>3 de vida</b> — assim nenhum empate dura para sempre.</p>
       <h4>Regra de ouro</h4><p>Se o texto de uma carta contrariar uma regra, vale o que a carta diz.</p>
     </div><div class="btns" style="margin-top:14px"><button class="btn gold" data-x>Fechar</button></div>`);
