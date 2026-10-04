@@ -81,30 +81,35 @@
 
   // [num, nome, custo, tipo, chave, texto]  tipo: imm = Imediato, perm = Permanente, perm1 = Permanente - uso único
   const S = [
-    [1, 'Bill, o Fiscal do Portão', 3, 'perm', 'bill', 'No fim do seu turno, olhe as próximas 2 cartas de Personagem e coloque-as de volta na ordem que quiser.'],
+    [1, 'Bill, o Fiscal do Portão', 4, 'perm', 'bill', 'Perk (dura 4 turnos seus): no início do seu turno, compre 1 Personagem extra, respeitando o limite da mão.'],
     [2, 'Fifinha: Quem Perder Passa o Controle', 6, 'imm', 'fifinha', 'Olhe os próximos 2 Personagens. Coloque 1 na mão e o outro no fundo. Respeite o limite da mão. Depois descarte esta carta.'],
     [3, 'Cafezinho Ressuscita-Defunto', 1, 'imm', 'cafezinho', 'Ganhe ⚡2. Depois descarte esta carta.'],
-    [4, 'Água Gelada pra Pensar Melhor', 1, 'imm', 'agua', 'Olhe as próximas 2 cartas de Personagem e coloque-as de volta na ordem que quiser. Depois descarte esta carta.'],
-    [5, 'Sofá do "Só Mais 5 Minutinhos"', 3, 'perm', 'sofa', 'Enquanto estiver ativo, no início do seu turno receba ⚡1 extra neste turno.'],
-    [6, 'PF Reforçado da Dona Neia', 1, 'imm', 'pf', 'Recupere ❤️1. Depois descarte esta carta.'],
+    [4, 'Água Gelada pra Pensar Melhor', 1, 'imm', 'agua', 'Compre 1 Personagem. Depois descarte esta carta.'],
+    [5, 'Sofá do "Só Mais 5 Minutinhos"', 4, 'perm', 'sofa', 'Perk (dura 4 turnos seus): seus Defensores sofrem 2 de dano a menos em cada ataque (mínimo 1).'],
+    [6, 'PF Reforçado da Dona Neia', 2, 'imm', 'pf', 'Recupere ❤️2. Depois descarte esta carta.'],
     [7, 'Caixa de Ferramentas do "Eu Resolvo"', 1, 'imm', 'caixa', 'Recupere do descarte para sua mão 1 Suporte Permanente de custo ⚡3 ou menos. Depois descarte esta carta.'],
-    [8, 'Grupo da Família Sem Privacidade', 1, 'imm', 'grupo', 'Olhe a mão do adversário. Depois descarte esta carta.'],
-    [9, 'Bola: Quem Perder Paga a Coca', 1, 'perm1', 'bola', 'Quando jogar 1 Personagem em ⚔️, você pode descartar esta carta para permitir que ele ataque neste turno. Isso não concede um ataque extra.'],
+    [8, 'Grupo da Família Sem Privacidade', 2, 'imm', 'grupo', 'Olhe a mão do adversário e escolha 1 carta dela: ela é descartada. Depois descarte esta carta.'],
+    [9, 'Bola: Quem Perder Paga a Coca', 2, 'perm1', 'bola', 'Quando jogar 1 Personagem em ⚔️, você pode descartar esta carta: ele pode atacar neste turno com +2 de ataque.'],
     [10, 'Van do Bruno — Cabe Mais Um!', 3, 'imm', 'van', 'Escolha até 2 dos seus Personagens. Mova cada um deles para qualquer área do mapa.'],
-    [11, 'Jardim Milagroso da Dolores', 3, 'perm1', 'jardim', 'No fim do seu turno, se estiver com ❤️2 ou menos, você pode descartar esta carta para recuperar ❤️2.'],
-    [12, 'Gambiarra do Leco — Agora Aguenta!', 1, 'perm1', 'gambiarra', 'Quando outro Suporte seu fosse destruído por um efeito adversário, descarte Gambiarra do Leco em vez dele.'],
-    [13, 'Cristal do Gato de Luz', 2, 'perm', 'cristal', 'A primeira habilidade Ativável que você usar em cada turno custa ⚡1 a menos. Isso pode reduzir uma habilidade a ⚡0.'],
-    [14, 'Pé de Benção da Vó', 3, 'perm1', 'pe', 'Quando sua última Defesa for destruída em combate, descarte esta carta para recuperar ❤️1.'],
+    [11, 'Jardim Milagroso da Dolores', 3, 'perm1', 'jardim', 'No fim do seu turno, se estiver com ❤️3 ou menos, você pode descartar esta carta para recuperar ❤️3.'],
+    [12, 'Gambiarra do Leco — Agora Aguenta!', 3, 'perm1', 'gambiarra', 'Quando um Personagem seu fosse derrotado em combate, descarte esta carta: ele fica com 1 de vida e continua em campo.'],
+    [13, 'Cristal do Gato de Luz', 3, 'perm', 'cristal', 'Perk (dura 4 turnos seus): no início do seu turno, recupere ❤️1.'],
+    [14, 'Pé de Benção da Vó', 3, 'perm1', 'pe', 'Quando sua última Defesa for destruída em combate, descarte esta carta para recuperar ❤️3.'],
     [15, 'Espelho do "Faz Igual!"', 5, 'imm', 'espelho', 'Copie o efeito Ao Entrar do último Personagem que você jogou neste turno, desde que o custo original dele seja ⚡4 ou menos. Depois descarte esta carta.'],
-    [16, 'Garrafada de Procedência Duvidosa', 2, 'imm', 'garrafada', 'Escolha 1: ganhe ⚡2; ou recupere ❤️2. Depois descarte esta carta.'],
-    [17, 'Porta dos Fundos Dimensional', 2, 'perm1', 'porta', 'Descarte esta carta para devolver 1 Personagem seu do campo para sua mão. Esse Personagem não pode ser jogado novamente neste turno.'],
-    [18, 'Manual Oficial do "Não Valeu!"', 4, 'perm1', 'naovaleu', 'Quando um Personagem adversário fosse resolver um efeito Ao Entrar, descarte esta carta para cancelar aquele efeito.'],
-    [19, 'Casa da Vó — Aqui Ninguém Morre', 4, 'perm1', 'casa', 'No início do seu turno, se estiver com ❤️1, descarte Casa da Vó para recuperar ❤️2.'],
+    [16, 'Garrafada de Procedência Duvidosa', 3, 'imm', 'garrafada', 'Recupere ❤️2 e cure todo o dano dos seus Personagens. Depois descarte esta carta.'],
+    [17, 'Porta dos Fundos Dimensional', 2, 'perm1', 'porta', 'Descarte esta carta para devolver 1 Personagem seu do campo para sua mão, curado. Ele pode ser jogado de novo neste turno.'],
+    [18, 'Manual Oficial do "Não Valeu!"', 3, 'perm1', 'naovaleu', 'Quando um Personagem adversário fosse resolver um efeito Ao Entrar, descarte esta carta para cancelar aquele efeito e compre 1 Personagem.'],
+    [19, 'Casa da Vó — Aqui Ninguém Morre', 4, 'perm1', 'casa', 'No início do seu turno, se estiver com ❤️2 ou menos, descarte Casa da Vó para recuperar ❤️3.'],
     [20, 'Churrasco do "Chega Mais Um!"', 7, 'imm', 'churrasco', 'Olhe os próximos 3 Personagens. Coloque 1 na mão e os outros 2 no fundo. Depois ganhe ⚡1 e descarte esta carta.'],
     [21, 'Rinha... Quer Dizer, Arena dos Galos', 4, 'perm1', 'arena', 'Quando um Personagem seu em ⚔️ fosse derrotado em combate, descarte esta carta para devolvê-lo à sua mão em vez do descarte.'],
-    [22, 'Poltrona do Chefe da Família', 6, 'imm', 'poltrona', 'Escolha 1: recupere ❤️2; ou compre até 2 Personagens, respeitando o limite da mão. Depois descarte esta carta.'],
+    [22, 'Poltrona do Chefe da Família', 6, 'imm', 'poltrona', 'Escolha 1: recupere ❤️3; ou compre até 2 Personagens, respeitando o limite da mão. Depois descarte esta carta.'],
     [23, 'Gambiarra 220V no 110V', 4, 'imm', 'g220', 'Ao jogar: escolha 1 Personagem da sua mão e jogue-o imediatamente pagando ⚡2 a menos. Depois descarte esta carta.'],
     [24, 'Táxi do Rogerinho — Corrida pra Outra Dimensão', 5, 'imm', 'taxi', 'Troque 1 Personagem seu no campo por 1 Personagem da sua mão. O novo Personagem custa ⚡1 a menos, resolve Ao Entrar normalmente e não pode atacar neste turno. Depois descarte esta carta.'],
+    [25, 'Torcida Organizada no Grito', 4, 'perm', 'torcida', 'Perk (dura 4 turnos seus): todos os ataques dos seus Personagens causam +1 de dano.'],
+    [26, 'Boleto Vencido: Quem Paga é Você', 4, 'perm', 'boleto', 'Perk (dura 4 turnos seus): ataques dos seus Personagens ao herói inimigo causam +2 de dano.'],
+    [27, 'Fofoca do Churrasco', 3, 'perm', 'fofoca', 'Perk (dura 4 turnos seus): sempre que um Personagem seu for derrotado em combate, compre 1 Personagem.'],
+    [28, 'Fiscal da Cerveja Gelada', 4, 'perm', 'fiscal', 'Perk (dura 4 turnos seus): sempre que um Personagem seu derrotar outro em combate, o adversário perde ❤️1.'],
+    [29, 'Soneca Estratégica na Rede', 3, 'perm', 'soneca', 'Perk (dura 4 turnos seus): no fim do seu turno, se nenhum Personagem seu atacou, recupere ❤️2.'],
   ];
 
   // [num, nome, tipo, chave, texto]  tipo: imm = Imediato (ao revelar), cont = Contínuo
@@ -140,20 +145,23 @@
   P.forEach(([n, name, title, cost, atk, def, rar, fx, text, ecost, fla]) => {
     CARDS['p' + pad(n)] = {
       id: 'p' + pad(n), type: 'char', name, title, cost, atk, def, rarity: rar, rarityName: RAR[rar],
-      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=54'),
+      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=63'),
       activatable: /^act/.test(fx),
     };
   });
+  // Perks: Suportes Permanentes com duração (em turnos do dono)
+  const DUR = { bill: 4, sofa: 4, cristal: 4, torcida: 4, boleto: 4, fofoca: 4, fiscal: 4, soneca: 4 };
   S.forEach(([n, name, cost, kind, fx, text]) => {
     CARDS['s' + pad(n)] = {
-      id: 's' + pad(n), type: 'sup', name, title: kind === 'imm' ? 'Imediato' : kind === 'perm' ? 'Permanente' : 'Permanente - uso único',
-      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=54'),
+      dur: DUR[fx] || 0,
+      id: 's' + pad(n), type: 'sup', name, title: kind === 'imm' ? 'Imediato' : kind === 'perm' ? (DUR[fx] ? 'Perk' : 'Permanente') : 'Permanente - uso único',
+      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=63'),
     };
   });
   E.forEach(([n, name, kind, fx, text]) => {
     CARDS['e' + pad(n)] = {
       id: 'e' + pad(n), type: 'ev', name, title: kind === 'imm' ? 'Evento Imediato' : 'Evento Contínuo',
-      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=54'),
+      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=63'),
     };
   });
 

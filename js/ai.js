@@ -109,7 +109,7 @@
   function attackScore(s, p, A, t, bad) {
     const o = s.players[opp(p)];
     if (t === 'life') return 40;
-    const T = o.def.concat(o.atk).find((c) => c.uid === t);
+    const T = o.def.concat(o.atk, o.apoio).find((c) => c.uid === t);
     const a = D(A).atk, back = D(T).atk;
     const kills = a >= hp(T), dies = back >= hp(A);
     if (kills && !dies) return 12 + val(T);
@@ -141,7 +141,7 @@
   // Médio: a cada passo, testa cada jogada possível (jogar carta, Suporte, mover, habilidade) e faz a que mais melhora a mesa.
   // Quando nada compensa, ataca e encerra o turno. Energia que sobrar se perde, então ela quase não pesa na avaliação.
   function mediumAction(s, p) {
-    const legal = G.legal(s, p);
+    const legal = G.legal(s, p).filter((a) => a.t !== 'cycle');
     const base = evalS(s, p);
     let best = null;
     legal.forEach((a) => {
@@ -213,7 +213,7 @@
     return quick(s, pd);
   }
   function easyAction(s, p) {
-    const legal = G.legal(s, p);
+    const legal = G.legal(s, p).filter((a) => a.t !== 'cycle');
     const pl = s.players[p];
     const plays = legal.filter((a) => a.t === 'playChar');
     const sups = legal.filter((a) => a.t === 'playSup');

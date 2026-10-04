@@ -577,6 +577,7 @@
     if (c.protStun) badges += '<b title="Não pode ser Atordoado">🛡️</b>';
     if (c.protMove) badges += '<b title="Não pode ser movido por efeitos adversários">🔒</b>';
     if (c.canAtkT === V.turn) badges += '<b title="Pode atacar neste turno">⚽</b>';
+    if (c.left > 0) badges += `<b class="perkleft" title="Perk: dura mais ${c.left} turno(s) seu(s)">⏳${c.left}</b>`;
     el.innerHTML = `<img src="${d.img}" alt="${esc(G.fullName(d))}" draggable="false">` +
       (d.type === 'char' && !opts.noStats ? `<div class="stats"><span class="a">⚔️${d.atk}</span><span class="d ${c.dmg ? 'hurt' : ''}">🛡️${d.def - (c.dmg || 0)}</span></div>` : '') +
       (badges ? `<div class="badges">${badges}</div>` : '') +
@@ -706,14 +707,15 @@
       const d = C[c.id];
       const el = cardEl(c, {});
       const cost = d.type === 'char' ? G.charCost(V, me, c) : G.supCost(V, me, c);
-      const playable = L.some((a) => a.uid === c.uid);
+      const playable = L.some((a) => a.uid === c.uid && a.t !== 'cycle');
+      const canCycle = L.some((a) => a.uid === c.uid && a.t === 'cycle');
       if (playable) el.classList.add('playable');
       else if (pl.energy < cost) el.classList.add('unaffordable');
       if (sel && sel.kind === 'hand' && sel.uid === c.uid) el.classList.add('sel');
       el.onclick = () => {
         if (longPressed(el)) return;
         hidePreview();
-        if (!playable) {
+        if (!playable && !canCycle) {
           if (V.active === me && pl.energy < cost && !V.pending) UI.toast(`Energia insuficiente: custa ⚡${cost} e você tem ⚡${pl.energy}.`, 'err', 2200);
           else UI.zoom(c.id);
           return;
@@ -799,12 +801,16 @@
       const c = G.locate(V, sel.uid);
       const d = c ? C[c.card.id] : null;
       const acts = L.filter((a) => a.uid === sel.uid);
+      const cyc = sel.kind === 'hand' ? acts.find((x) => x.t === 'cycle') : null;
+      const cycBtn = () => { if (cyc) btns.push(btn(`♻️ <span class="lg">Descartar e comprar </span><small>⚡${G.RULES.cycleCost}</small>`, '', () => { sel = null; ctl.send(cyc); })); };
       if (d && sel.kind === 'hand' && d.type === 'sup') {
         const a = acts.find((x) => x.t === 'playSup');
         hint = `${esc(d.name)}`;
         if (a) btns.push(btn(`✨ Jogar<span class="lg"> Suporte</span> (⚡${G.supCost(V, me, c.card)})`, 'gold', () => { sel = null; ctl.send(a); }));
+        cycBtn();
       } else if (d && sel.kind === 'hand') {
-        hint = `Escolha uma zona brilhante para <b>${esc(d.name)}</b>`;
+        hint = acts.some((x) => x.t === 'playChar') ? `Escolha uma zona brilhante para <b>${esc(d.name)}</b>` : `<b>${esc(d.name)}</b> custa mais do que a sua energia agora. Se quiser, troque por outra carta.`;
+        cycBtn();
       } else if (d) {
         const act = acts.find((x) => x.t === 'activate');
         const perm = acts.find((x) => x.t === 'usePerm');
@@ -824,7 +830,7 @@
       }
       btns.push(btn('✖ Cancelar', '', () => { sel = null; render(); }));
     } else {
-      const canMore = L.some((a) => a.t !== 'endTurn' && a.t !== 'buySup');
+      const canMore = L.some((a) => a.t !== 'endTurn' && a.t !== 'buySup' && a.t !== 'cycle');
       const canAtk = L.some((a) => a.t === 'attack');
       hint = canAtk ? 'Jogue cartas com a sua energia ⚡ e ataque com os Personagens brilhando' : 'Jogue cartas com a sua energia ⚡ (Personagens novos atacam no próximo turno)';
       const buy = L.find((a) => a.t === 'buySup');
@@ -1068,11 +1074,13 @@
       <h4>Campo</h4><table><tr><th>Zona</th><th>Limite</th><th>Função</th></tr>
       <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram).</td></tr>
       <tr><td>🛡️ Defesa</td><td>3</td><td>Protegem a sua vida: enquanto existir um Defensor, o herói não pode ser atacado.</td></tr>
-      <tr><td>🤝 Apoio</td><td>2</td><td>Não atacam, não defendem e não podem ser atacados. Ativam efeitos 🤝.</td></tr>
+      <tr><td>🤝 Apoio</td><td>2</td><td>Não atacam nem defendem. Só podem ser atacados quando o adversário não tem Defensores. Ativam efeitos 🤝.</td></tr>
       <tr><td>🛠️ Suportes</td><td>2</td><td>Suportes Permanentes ficam aqui.</td></tr></table>
       <h4>Turno</h4><p><b>COMPRE</b> 1 Personagem (se tiver menos de 7 cartas) → faça o que quiser com sua energia, em qualquer ordem: <b>jogar Personagens e Suportes</b>, <b>comprar 1 Suporte</b> (⚡1), <b>mover</b> um Personagem (⚡1, uma vez por Personagem), usar <b>habilidades Ativáveis</b> (uma vez por turno cada), e <b>atacar</b> com cada Personagem pronto → <b>ENCERRE</b> o turno. A cada 2 turnos seus você também compra 1 Suporte automaticamente.</p>
       <h4>Combate</h4><p>O atacante causa o próprio ⚔️ de dano. Um Personagem atacado <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo. O dano fica na carta até o <b>início do turno do dono dela</b>, e a carta cai quando o dano chega à sua 🛡️. Dá para combinar vários ataques para derrubar um alvo.</p>
-      <p>Contra um herói com Defensores, ataque os Defensores. <b>Desafio</b>: atacar um Personagem do Ataque inimigo. Sem Defensores, <b>todos os seus atacantes podem atacar o herói</b>, cada um tirando vida igual ao seu ⚔️ (sem contra-ataque).</p>
+      <p>Contra um herói com Defensores, ataque os Defensores. <b>Desafio</b>: atacar um Personagem do Ataque inimigo. Sem Defensores, <b>todos os seus atacantes podem atacar o herói</b> (cada um tirando vida igual ao seu ⚔️, sem contra-ataque) <b>ou os Personagens em 🤝 Apoio</b>.</p>
+      <h4>Descartar e comprar</h4><p>Uma vez por turno, pague <b>⚡1</b> para descartar 1 carta da mão e comprar 1 do mesmo tipo (Personagem por Personagem, Suporte por Suporte). Serve para trocar uma carta que não dá para jogar.</p>
+      <h4>Perks (Suportes Permanentes)</h4><p>Perks ocupam uma das 2 vagas 🛠️, têm efeito passivo e <b>duram 4 turnos seus</b> (o ⏳ na carta mostra quantos faltam): <b>Torcida Organizada</b> (+1 de dano em todos os ataques), <b>Boleto Vencido</b> (+2 de dano no herói), <b>Fofoca do Churrasco</b> (compra 1 quando um Personagem seu cai), <b>Fiscal da Cerveja</b> (adversário perde ❤️1 quando seu Personagem derrota outro), <b>Soneca Estratégica</b> (recupera ❤️2 se ninguém atacou), <b>Bill</b> (compra extra), <b>Sofá</b> (Defensores sofrem 2 de dano a menos) e <b>Cristal</b> (cura ❤️1 por turno).</p>
       <h4>Dicas de energia e custo</h4><p>As cartas custam de <b>⚡1 a ⚡10</b> (o número no selo dourado). Jogar cartas baratas cedo e guardar as fortes para depois é normal. Mover custa ⚡1, só vale uma vez por Personagem por turno, e <b>quem se moveu não ataca</b> naquele turno. Personagem recém-jogado também só ataca no turno seguinte. O dano que uma carta sofreu aparece em vermelho na defesa dela.</p>
       <h4>Atordoado</h4><p>Efeitos de cartas podem Atordoar: não ataca, não usa Ativável, não se move. Continua defendendo. Recupera no fim do próximo turno do dono.</p>
       <h4>Limites</h4><p>Mão: 7 cartas · Energia: ⚡10 · Vida: 25 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>

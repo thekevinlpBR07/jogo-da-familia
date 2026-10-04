@@ -10,7 +10,7 @@
       body: `<p>Um duelo de cartas para <b>2 jogadores</b> estrelado pela própria família — cada um com versões <b>Base, Especial, Mágica e Lendária</b>.</p>
         <p>🎯 <b>Objetivo:</b> reduzir a vida do adversário de <b>25 para 0</b>.</p>
         <p>Existem 3 tipos de carta:</p>
-        <ul><li><b>Personagens</b> (72): lutam no seu campo.</li><li><b>Suportes</b> (24): truques e ajudas.</li><li><b>Eventos</b> (18): mudam as regras da mesa por um tempo.</li></ul>`,
+        <ul><li><b>Personagens</b> (72): lutam no seu campo.</li><li><b>Suportes</b> (29): truques, curas e <b>Perks</b>.</li><li><b>Eventos</b> (18): mudam as regras da mesa por um tempo.</li></ul>`,
       vis: () => card('p04', 'transform:rotate(-8deg)') + card('s13', 'transform:translateY(-14px)') + card('e10', 'transform:rotate(8deg)'),
     },
     {
@@ -44,7 +44,7 @@
       body: `<p>Seu campo tem 4 áreas:</p>
         <ul><li><b>⚔️ Ataque (3 vagas)</b>: quem pode atacar.</li>
         <li><b>🛡️ Defesa (3 vagas)</b>: protegem a sua Vida.</li>
-        <li><b>🤝 Apoio (2 vagas)</b>: não atacam, não defendem e <b>não podem ser atacados</b> — ficam lá para usar efeitos 🤝.</li>
+        <li><b>🤝 Apoio (2 vagas)</b>: não atacam nem defendem e só <b>podem ser atacados se o adversário não tiver Defensores</b> — ficam lá para usar efeitos 🤝.</li>
         <li><b>🛠️ Suportes (2 vagas)</b>: para Suportes Permanentes.</li></ul>
         <p>Efeitos <b>Ao Entrar</b> funcionam em qualquer zona.</p>`,
       vis: () => `<div class="mini-board">
@@ -87,7 +87,7 @@
       t: 'Defesa, Desafio e vida',
       body: `<ul><li>Se o adversário tem <b>Defensores 🛡️</b>, o herói dele está protegido: ataque os Defensores primeiro.</li>
         <li><b>Desafio</b>: você pode atacar um Personagem do <b>Ataque</b> inimigo mesmo com Defensores.</li>
-        <li><b>Sem Defensores?</b> <b>Todos</b> os seus atacantes podem atacar o herói (clique no retrato dele). Cada um tira vida igual ao seu ⚔️ — e o herói não contra-ataca.</li>
+        <li><b>Sem Defensores?</b> <b>Todos</b> os seus atacantes podem atacar o herói (clique no retrato dele) <b>ou os Personagens em 🤝 Apoio</b>. Cada um tira vida igual ao seu ⚔️ — e o herói não contra-ataca.</li>
         <li>A vida começa em <b>25</b>. Nas cartas, <b>1 ❤️ = 5 pontos</b> de vida.</li></ul>`,
       vis: () => card('p48', 'transform:rotate(-6deg)') + `<div style="font-size:44px">⚔️</div>` + card('p40', 'transform:rotate(6deg)'),
     },
@@ -99,6 +99,17 @@
         <li>Se recupera no <b>fim do próximo turno</b> do dono.</li>
         <li>Se voltar para a mão, o Atordoamento some.</li></ul>`,
       vis: () => card('p27', 'filter:grayscale(.7) brightness(.8);transform:rotate(-10deg)') + `<div style="font-size:60px">💫</div>`,
+    },
+    {
+      t: 'Perks e Suportes',
+      body: `<p><b>Perks</b> são Suportes Permanentes com efeito passivo forte. Eles ocupam uma das 2 vagas 🛠️ e <b>duram 4 turnos seus</b> (o número ⏳ na carta mostra quantos faltam).</p>
+        <ul><li>⚔️ <b>Torcida Organizada</b>: seus ataques causam +1 de dano.</li>
+        <li>🧾 <b>Boleto Vencido</b>: ataques ao herói causam +2.</li>
+        <li>🤫 <b>Fofoca do Churrasco</b>: quando um Personagem seu cai, você compra 1.</li>
+        <li>🍺 <b>Fiscal da Cerveja</b>: quando seu Personagem derrota outro, o adversário perde ❤️1.</li>
+        <li>😴 <b>Soneca Estratégica</b>: se ninguém atacou, você recupera ❤️2.</li></ul>
+        <p>Os Suportes de cura agora recuperam bastante: ❤️2 ou ❤️3 (10 a 15 pontos de vida).</p>`,
+      vis: () => card('s25', 'transform:rotate(-7deg)') + card('s28', 'transform:translateY(-10px)') + card('s29', 'transform:rotate(7deg)'),
     },
     {
       t: 'Limites, Suportes e Eventos',
@@ -115,7 +126,8 @@
         <li>Para atacar, toque num Personagem seu <b>brilhando em laranja</b> e depois no <b>alvo 🎯</b> (ou no retrato do adversário, quando ele não tem Defensores).</li>
         <li><b>Segure o dedo</b> (ou clique com o botão direito) em qualquer carta para <b>ampliar</b> e ler o texto.</li>
         <li>No computador, deixe o mouse parado em cima de uma carta para ver ela grande.</li>
-        <li>Botões no meio da mesa: <b>Comprar Suporte</b> e <b>Encerrar turno</b>.</li></ul>
+        <li>Botões no meio da mesa: <b>Comprar Suporte</b> e <b>Encerrar turno</b> (vira <b>Pular turno</b> quando não há jogadas).</li>
+        <li>Toque numa carta da mão e use <b>♻️ Descartar e comprar</b> (⚡1, 1 vez por turno) para trocar uma carta ruim por outra do mesmo tipo.</li></ul>
         <div class="btns" style="justify-content:flex-start;margin-top:14px"><button class="btn gold" id="tut-practice">🎓 Praticar com dicas</button></div>`,
       vis: () => card('p09', 'transform:rotate(-5deg)') + card('p68') + card('p35', 'transform:rotate(5deg)'),
     },
@@ -174,7 +186,7 @@
           tip('atk', 'Hora de atacar!', 'Personagens seus <b>brilhando em laranja</b> podem atacar. Toque num deles e depois no alvo 🎯. O alvo contra-ataca com o ⚔️ dele, e o dano fica na carta até o turno do dono.');
           if (legal.some((a) => a.target === 'life')) tip('life', 'Caminho livre!', 'O adversário não tem Defensores: selecione um atacante e toque no <b>retrato do adversário</b>. <b>Todos</b> os seus atacantes podem atacar o herói!');
         }
-        if (!legal.some((a) => a.t !== 'endTurn' && a.t !== 'buySup')) tip('end', 'Nada mais a fazer?', 'Quando não sobrar nada útil, toque em <b>Encerrar turno</b>. Personagens recém-jogados (💤) só atacam no próximo turno.');
+        if (!legal.some((a) => a.t !== 'endTurn' && a.t !== 'buySup' && a.t !== 'cycle')) tip('end', 'Nada mais a fazer?', 'Quando não sobrar nada útil, toque em <b>Encerrar turno</b>. Personagens recém-jogados (💤) só atacam no próximo turno.');
       }
       if (v.turn >= 3) tip('ev', 'Eventos', 'Os Eventos entram sozinhos a cada 3 rodadas e mudam as regras da mesa. O atual aparece à direita do campo (no celular, no ícone do topo) — toque nele para ler.');
       if ([...pl.atk, ...pl.def, ...op.atk, ...op.def].some((c) => c.stunned)) tip('stun', 'Atordoado 💫', 'Uma carta inclinada e cinza está Atordoada: não ataca nem se move até se recuperar, mas continua defendendo.');
