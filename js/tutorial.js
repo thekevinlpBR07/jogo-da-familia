@@ -58,7 +58,7 @@
         <li><b>JOGUE</b> o que quiser com a sua energia: Personagens, Suportes, mover (⚡1), habilidades Ativáveis e comprar Suporte (⚡1). <b>Sem limite de cartas</b>, só de energia!</li>
         <li><b>ATAQUE</b> com cada Personagem pronto.</li>
         <li><b>ENCERRE</b> o turno — ou <b>pule</b> se não tiver nada para jogar (o botão vira "Pular turno").</li></ol>
-        <p>⚡ <b>Energia que recarrega:</b> turno 1 = ⚡1, turno 2 = ⚡2... até ⚡20. Enche todo turno, e <b>o que sobrar se perde</b> — então vale gastar! Quem joga em <b>2º</b> tem ⚡+1 nos 5 primeiros turnos.</p>`,
+        <p>⚡ <b>Energia que recarrega:</b> turno 1 = ⚡1, turno 2 = ⚡2... até ⚡10. Enche todo turno, e <b>o que sobrar se perde</b> — então vale gastar! Quem joga em <b>2º</b> tem ⚡+1 nos 5 primeiros turnos.</p>`,
       vis: () => `<div class="flow"><div class="step"><span>⚡1</span><b>Turno 1</b>1 de energia</div><span class="arrow">⬇</span><div class="step"><span>⚡5</span><b>Turno 5</b>5 de energia</div><span class="arrow">⬇</span><div class="step"><span>⚡10</span><b>Turno 10+</b>sempre 10</div></div>`,
     },
     {
@@ -121,7 +121,7 @@
     },
     {
       t: 'Limites, Suportes e Eventos',
-      body: `<ul><li>Energia máxima: <b>⚡20</b>. Mão máxima: <b>7 cartas</b>. Nenhuma carta custa menos de ⚡1 e descontos <b>não se acumulam</b>.</li>
+      body: `<ul><li>Energia máxima: <b>⚡10</b>. Mão máxima: <b>7 cartas</b>. Nenhuma carta custa menos de ⚡1 e descontos <b>não se acumulam</b>.</li>
         <li><b>Suporte Imediato</b>: resolve e vai para o descarte. <b>Permanente</b>: fica numa das 2 vagas 🛠️ (uso único = descarta quando usa).</li>
         <li>A cada 2 turnos seus você <b>compra 1 Suporte automaticamente</b>.</li>
         <li><b>Evento</b>: entra <b>sozinho a cada 3 rodadas</b> e muda as regras até o próximo. Ninguém compra nem troca Eventos.</li></ul>
@@ -189,7 +189,7 @@
       }
       if (v.phase === 'main') {
         tip('act', 'Seu turno: gaste a energia!', 'Toque numa carta da mão (as que brilham em verde cabem na sua energia ⚡) e depois numa zona verde. Você pode jogar <b>quantas cartas quiser</b>. Comece colocando alguém na <b>🛡️ Defesa</b> para proteger sua vida!');
-        tip('nrg', 'A energia recarrega', 'Todo turno a energia enche até o máximo (que sobe 1 por turno, até ⚡20). O que sobrar <b>se perde</b>, então use tudo!');
+        tip('nrg', 'A energia recarrega', 'Todo turno a energia enche até o máximo (que sobe 1 por turno, até ⚡10). O que sobrar <b>se perde</b>, então use tudo!');
         if (pl.hand.some((c) => G.CARDS[c.id].type === 'sup')) tip('sup', 'Suportes', 'Suportes (verdes) também gastam energia. Os <b>Imediatos</b> fazem efeito na hora; os <b>Permanentes</b> ficam no campo, à direita.');
         if (legal.some((a) => a.t === 'attack')) {
           tip('atk', 'Hora de atacar!', 'Personagens seus <b>brilhando em laranja</b> podem atacar. Toque num deles e depois no alvo 🎯. O alvo contra-ataca com o ⚔️ dele, e o dano fica na carta até ser curado.');

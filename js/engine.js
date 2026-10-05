@@ -26,7 +26,7 @@
     heartPts: 5,         // 1 ❤️ impresso nas cartas = 5 pontos de vida ("recupere ❤️1" cura 5)
     moveCost: 1,         // mover um Personagem custa ⚡ (1x por Personagem por turno)
     buyCost: 1,
-    energyMax: 20,       // teto da energia por turno
+    energyMax: 10,       // teto da energia por turno
     secondEnergyTurns: 5, // quem joga em 2º tem ⚡+1 nos primeiros N turnos dele (equilibra a vantagem de começar)
     secondEnergy: 0,     // (teste) energia extra de quem joga em 2º (ele começa com ⚡1+N e sobe 1 por turno)
     secondLife: 0,       // (teste) pontos de vida extras de quem joga em 2º
