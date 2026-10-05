@@ -72,6 +72,10 @@
         switch (pd.purpose) {
           case 'mulligan': pick = opts.slice().sort((a, b) => C[b.id].cost - C[a.id].cost)[0]; break;
           case 'pickToHand': case 'protect': case 'unstun': case 'rescue': case 'taxiIn': case 'g220': case 'recoverSup': pick = byVal(1)[0]; break;
+          case 'cureHaste': case 'cureProtect': case 'cureOne': { // cura quem mais perdeu vida (ataque forte desempata)
+            const dm = (o) => { const L = G.locate(s, o.v); return L ? (L.card.dmg || 0) * 2 + C[L.card.id].atk * 0.1 : 0; };
+            pick = opts.slice().sort((x, y) => dm(y) - dm(x))[0]; break;
+          }
           case 'stunEnemy': case 'enemyToDef': pick = opts.slice().sort((a, b) => C[b.id].atk - C[a.id].atk)[0]; break;
           case 'bounceSup': pick = byVal(1)[0]; break;
           case 'replacePerm': case 'taxiOut': pick = byVal(-1)[0]; break;

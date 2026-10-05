@@ -29,11 +29,11 @@
     cycleCost: 1,        // descartar 1 carta da mão e comprar 1 do mesmo tipo (1x por turno)          // comprar 1 Suporte custa ⚡
   };
 
-  const AE = new Set(['healBoard', 'drawIfFew', 'heal2', 'nextCharRed', 'nextSupRed', 'drawSup1', 'apoioToAtk', 'moveOther', 'evilynIdol', 'bounceSupport',
-    'evilynRainha', 'protStunOther', 'healIfLow', 'moveAny', 'doloresDeusa', 'moveToDef',
+  const AE = new Set(['cureIfBehind', 'cureAllHeal1', 'cureHaste', 'cure5Each', 'cureProtect', 'healBoard', 'drawIfFew', 'heal2', 'nextCharRed', 'nextSupRed', 'drawSup1', 'apoioToAtk', 'moveOther', 'evilynIdol', 'bounceSupport',
+    'healIfLow', 'moveAny', 'doloresDeusa', 'moveToDef',
     'energyIfLessLife', 'brunor', 'helsoTranquilo', 'helsoCoco', 'jonesRei', 'donJones', 'julianaSerena',
-    'lecoDeus', 'adeniSanta', 'fredOraculo', 'fredMestre', 'gabrielSerio', 'arcanjo', 'neiaDurona', 'lookHand',
-    'nathaliaFiscal', 'nathaliaBruxa', 'peekEvent', 'luarFada', 'luarDeusa']);
+    'lecoDeus', 'adeniSanta', 'fredOraculo', 'gabrielSerio', 'neiaDurona', 'lookHand',
+    'nathaliaFiscal', 'peekEvent', 'luarFada', 'luarDeusa']);
   G.hasAE = (id) => AE.has(C[id].fx);
 
   // ---------------------------------------------------------------- utilidades
@@ -100,7 +100,7 @@
     const b = pl.life;
     pl.life = Math.min(G.RULES.lifeStart, pl.life + n * G.RULES.heartPts);
     const g = pl.life - b;
-    if (g > 0) { fx(s, { t: 'heal', p, n: g }); log(s, `${pn(s, p)} recuperou ${g} de vida.`, 'good'); }
+    if (g > 0) { fx(s, { t: 'heal', p, n: g }); const hh = g / G.RULES.heartPts; log(s, `${pn(s, p)} recuperou ${Number.isInteger(hh) ? '❤️' + hh + ' (' + g + ' de vida)' : g + ' de vida'}.`, 'good'); }
     return g;
   }
   function loseLife(s, p, n, why) {
@@ -472,7 +472,6 @@
     fx(s, { t: 'turn', p });
     log(s, `— Turno ${s.turn}: ${pn(s, p)} —`, 'turn');
     fieldChars(pl).forEach((c) => {
-      c.dmg = 0; // o dano sofrido nas cartas cura no início do turno do dono
       c.protStun = false;
       c.protMove = false;
       if (c.stunned && c.stunT < s.turn && D(c).fx === 'earlyRecover') unstun(s, c);
@@ -490,6 +489,10 @@
     if (hasPerm(s, p, 'bill') && s.turn > 1) { if (drawChar(s, p, true)) log(s, '🐕 Bill, o Fiscal do Portão: compra extra.', 'good'); }
     if (hasPerm(s, p, 'cristal')) { log(s, '🔮 Cristal do Gato de Luz: você recupera vida.', 'good'); heal(s, p, 1); }
     pl.turns = (pl.turns || 0) + 1;
+    fieldChars(pl).forEach((c) => { // regeneração de algumas cartas
+      if (D(c).fx === 'regen3' && c.dmg > 0) { c.dmg = Math.max(0, c.dmg - 3); log(s, `${nm(c)} curou 3 de dano.`, 'good'); }
+      if (D(c).fx === 'regenAll' && c.dmg > 0) { c.dmg = 0; log(s, `${nm(c)} curou todo o dano.`, 'good'); }
+    });
     if (pl.turns === 2 && p !== s.first && /^coin\d$/.test(G.RULES.secondBonus)) {
       // compensação do 2º jogador: energia extra no 2º turno dele (o 1º turno continua com ⚡1 para todos); coinN = ⚡+(N-1)
       pl.pendingCoin = +G.RULES.secondBonus.slice(4) - 1;
@@ -601,7 +604,10 @@
       run(sim);
       const pd = sim.pending;
       const changed = sig(sim) !== sig(s);
-      if (!changed && !pd) return; // nada aconteceria (condição não cumprida)
+      if (!changed && !pd) { // nada aconteceria (condição não cumprida ou bloqueado por um Evento)
+        log(s, evKey(s) === 'discussao' && /recupere/.test(C[st.id].text) ? `${C[st.id].name}: o Evento Discussão Generalizada impede recuperar vida.` : `${C[st.id].name}: o efeito não teve resultado agora (condição não cumprida).`, 'warn');
+        return;
+      }
       const needAsk = changed || (pd.player !== st.p) || (pd.kind === 'pick' && pd.min >= 1) || pd.kind === 'option';
       if (!needAsk) return push(s, ae);
       return ask(s, st, { player: st.p, kind: 'confirm', title: `Usar o efeito de ${C[st.id].name}?`, text: C[st.id].text, options: [{ v: 0, id: st.id }], purpose: 'useAE' });
@@ -628,6 +634,10 @@
     const pl = s.players[p];
     return zones.flatMap((z) => pl[z]).filter((c) => c.uid !== uid);
   }
+  function cureAll(s, p, src) {
+    const hurt = fieldChars(s.players[p]).filter((c) => c.dmg > 0);
+    if (hurt.length) { hurt.forEach((c) => { c.dmg = 0; }); log(s, `${src}: todo o dano dos Personagens de ${pn(s, p)} sumiu.`, 'good'); }
+  }
   STEP.ae = (s, st, v) => {
     const p = st.p, o = opp(p), pl = s.players[p], op = s.players[o];
     const id = st.id || (locate(s, st.uid) || {}).card?.id;
@@ -638,6 +648,26 @@
     const src = d.name;
     const T = (t) => src + ' — ' + t;
     switch (d.fx) {
+      case 'cureIfBehind': if (pl.life < op.life) cureAll(s, p, src); return;
+      case 'cureAllHeal1': cureAll(s, p, src); heal(s, p, 1); return;
+      case 'cure5Each': {
+        let any = false;
+        fieldChars(pl).forEach((c) => { if (c.dmg > 0) { c.dmg = Math.max(0, c.dmg - 5); any = true; } });
+        if (any) log(s, `${src}: cada Personagem de ${pn(s, p)} curou 5 de dano.`, 'good');
+        return;
+      }
+      case 'cureHaste': {
+        const opts = fieldChars(pl).filter((c) => c.uid !== st.uid);
+        const c = pickOne(s, st, v, { player: p, options: opts, optional: true, title: T('curar e liberar ataque'), text: 'Escolha 1 Personagem seu: ele cura todo o dano e pode atacar neste turno.', purpose: 'cureHaste' });
+        if (c) { c.dmg = 0; c.canAtkT = s.turn; c.movedT = 0; fx(s, { t: 'shield', uid: c.uid }); log(s, `${nm(c)} foi curado e pode atacar neste turno!`, 'good'); }
+        return;
+      }
+      case 'cureProtect': {
+        const opts = ownOthers(s, p, st.uid, ['atk', 'def', 'apoio']);
+        const c = pickOne(s, st, v, { player: p, options: opts, title: T('curar aliado'), text: 'Escolha outro Personagem seu: ele cura todo o dano e não pode ser movido por efeitos adversários até o início do seu próximo turno.', purpose: 'cureProtect' });
+        if (c) { c.dmg = 0; c.protMove = true; fx(s, { t: 'shield', uid: c.uid }); log(s, `${nm(c)} foi curado e está protegido até o próximo turno de ${pn(s, p)}.`, 'good'); }
+        return;
+      }
       case 'healBoard': {
         const hurt = fieldChars(pl).filter((c) => c.dmg > 0);
         if (hurt.length) { hurt.forEach((c) => { c.dmg = 0; }); log(s, `${src}: todo o dano dos Personagens de ${pn(s, p)} sumiu.`, 'good'); }
@@ -732,9 +762,9 @@
       }
       case 'gabrielSerio': {
         if (zone !== 'def') return;
-        const opts = ownOthers(s, p, st.uid, ['atk', 'def', 'apoio']).filter((c) => c.stunned);
-        const c = pickOne(s, st, v, { player: p, options: opts, title: T('retirar Atordoamento'), text: 'Escolha um Personagem seu Atordoado.', purpose: 'unstun', auto: true });
-        if (c) unstun(s, c);
+        const opts = fieldChars(pl).filter((c) => c.dmg > 0);
+        const c = pickOne(s, st, v, { player: p, options: opts, title: T('curar Personagem'), text: 'Escolha um Personagem seu para curar todo o dano.', purpose: 'cureOne', auto: true });
+        if (c) { c.dmg = 0; fx(s, { t: 'shield', uid: c.uid }); log(s, `${nm(c)} foi curado.`, 'good'); }
         return;
       }
       case 'lookHand': {
@@ -769,8 +799,8 @@
   };
   STEP.luarDeusa2 = (s, st, v) => {
     const opts = st.moved.map((u) => locate(s, u)).filter((L) => L && L.z === 'def').map((L) => L.card);
-    const c = pickOne(s, st, v, { player: st.p, options: opts, title: 'Luar, Deusa da Lua — bênção lunar', text: 'Escolha 1 que foi para 🛡️: ele não pode ser Atordoado até seu próximo turno.', purpose: 'protect', auto: true });
-    if (c) { c.protStun = true; fx(s, { t: 'shield', uid: c.uid }); log(s, `🌙 ${nm(c)} está protegido.`, 'good'); }
+    const c = pickOne(s, st, v, { player: st.p, options: opts, title: 'Luar, Deusa da Lua — bênção lunar', text: 'Escolha 1 que foi para 🛡️: ele cura todo o dano.', purpose: 'protect', auto: true });
+    if (c) { c.dmg = 0; fx(s, { t: 'shield', uid: c.uid }); log(s, `🌙 ${nm(c)} foi curado pela bênção lunar.`, 'good'); }
   };
   STEP.bounceSup = (s, st, v) => {
     const o = st.p; // dono do Suporte alvo
@@ -947,6 +977,8 @@
   function actTargets(s, p, c) {
     const pl = s.players[p];
     switch (D(c).fx) {
+      case 'actCure': return fieldChars(pl).filter((x) => x.uid !== c.uid && x.dmg > 0);
+      case 'actCureDef': return pl.def.filter((x) => x.uid !== c.uid && x.dmg > 0);
       case 'actUnstun': return fieldChars(pl).filter((x) => x.uid !== c.uid && x.stunned);
       case 'actUnstunDef': return pl.def.filter((x) => x.uid !== c.uid && x.stunned);
       case 'actDraw': return deckN(s, 'char') && s.players[p].hand.length < 7 ? [true] : [];
@@ -959,6 +991,11 @@
     const f = D(L.card).fx;
     if (f === 'actDraw') { if (drawChar(s, st.p)) log(s, `${pn(s, st.p)} comprou 1 Personagem.`, 'good'); return; }
     const opts = actTargets(s, st.p, L.card);
+    if (f === 'actCure' || f === 'actCureDef') {
+      const t = pickOne(s, st, v, { player: st.p, options: opts, title: `${D(L.card).name} — curar aliado`, text: 'Escolha o aliado que vai curar todo o dano.', purpose: 'cureOne', auto: true });
+      if (t) { t.dmg = 0; fx(s, { t: 'shield', uid: t.uid }); log(s, `${nm(t)} foi curado.`, 'good'); }
+      return;
+    }
     const c = pickOne(s, st, v, { player: st.p, options: opts, title: `${D(L.card).name} — retirar Atordoamento`, text: 'Escolha o aliado que vai se recuperar.', purpose: 'unstun', auto: true });
     if (c) unstun(s, c);
   };
@@ -990,7 +1027,7 @@
   function canAttack(s, p, c) {
     const pl = s.players[p];
     if (s.turn < G.RULES.noAttackUntil) return false;
-    return pl.atk.includes(c) && !c.stunned && c.attackedT !== s.turn && c.movedT !== s.turn && (c.enteredT !== s.turn || c.canAtkT === s.turn);
+    return pl.atk.includes(c) && !c.stunned && c.attackedT !== s.turn && c.movedT !== s.turn && (c.enteredT !== s.turn || c.canAtkT === s.turn || D(c).fx === 'ligeiro');
   }
   function attackTargets(s, p) {
     const o = s.players[opp(p)];
@@ -1190,6 +1227,7 @@
         const A = pl.atk.find((x) => x.uid === a.uid);
         if (!A || !canAttack(s, p, A)) return err('Esse Personagem não pode atacar agora.');
         if (!attackTargets(s, p).includes(a.target)) return err('Alvo inválido.');
+        if (a.target === 'life' && D(A).fx === 'ligeiro') return err('Ligeiro só pode atacar Personagens.');
         resolveAttack(s, p, A, a.target);
         break;
       }
@@ -1229,7 +1267,7 @@
       if (D(c).activatable && !c.stunned && c.actT !== s.turn && pl.energy >= actCost(s, p, c) && actTargets(s, p, c).length) out.push({ t: 'activate', uid: c.uid });
     });
     const tg = attackTargets(s, p);
-    pl.atk.forEach((c) => { if (canAttack(s, p, c)) tg.forEach((t) => out.push({ t: 'attack', uid: c.uid, target: t })); });
+    pl.atk.forEach((c) => { if (canAttack(s, p, c)) tg.forEach((t) => { if (t === 'life' && D(c).fx === 'ligeiro') return; out.push({ t: 'attack', uid: c.uid, target: t }); }); });
     pl.perms.forEach((c) => { if (D(c).fx === 'porta' && fieldChars(pl).length) out.push({ t: 'usePerm', uid: c.uid }); });
     out.push({ t: 'endTurn' });
     return out;

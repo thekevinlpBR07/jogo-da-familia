@@ -17,6 +17,15 @@
   let cur = null, now = null, muted = false;
   try { muted = localStorage.getItem('jf-memes-muted') === '1'; } catch (e) { /* sem storage */ }
 
+  let el = null, unlocked = false;
+  const chan = () => (el || (el = new Audio()));
+  const unlock = () => {
+    if (unlocked) return;
+    unlocked = true;
+    try { const a = chan(); a.muted = true; a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='; const pr = a.play(); const done = () => { a.pause(); a.muted = false; }; if (pr && pr.then) pr.then(done, () => { unlocked = false; a.muted = false; }); else done(); } catch (e) { unlocked = false; }
+  };
+  ['pointerdown', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, unlock, { passive: true }));
+
   const Memes = (G.Memes = {
     list: LIST,
     onChange: null,
@@ -26,15 +35,16 @@
   const changed = () => { if (Memes.onChange) Memes.onChange(now); };
 
   Memes.stop = function () {
-    if (cur) { cur.onended = null; cur.pause(); cur.src = ''; cur = null; }
+    if (cur) { cur.onended = null; cur.pause(); cur = null; }
     if (now) { now = null; if (G.Music && G.Music.duck) G.Music.duck(false, 'meme'); changed(); }
   };
   // toca o som `id`, cortando o que estiver tocando; `who` = nome de quem apertou
   Memes.play = function (id, who) {
     const m = LIST.find((x) => x.id === id);
     if (!m || muted) return false;
-    if (cur) { cur.onended = null; cur.pause(); cur.src = ''; cur = null; }
-    const a = new Audio(m.url);
+    if (cur) { cur.onended = null; cur.pause(); cur = null; }
+    const a = chan(); // elemento único, destravado por um toque do usuário (celulares bloqueiam áudio vindo da rede)
+    a.src = m.url;
     a.volume = 1;
     cur = a;
     now = m;

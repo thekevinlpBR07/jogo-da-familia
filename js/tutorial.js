@@ -75,7 +75,7 @@
     {
       t: 'Combate: ataque e contra-ataque',
       body: `<p>O atacante causa o seu <b>⚔️ Ataque</b> de dano. O alvo <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo.</p>
-        <p>O dano fica na carta até o <b>início do turno do dono dela</b>. A carta <b>cai</b> quando o dano chega à sua <b>🛡️ Defesa</b>.</p>
+        <p>O dano <b>fica na carta</b> até ser curado por um efeito (o 💔 mostra a vida atual). Cartas <b>Ligeiro</b> atacam assim que entram, só contra Personagens. A carta <b>cai</b> quando o dano chega à sua <b>🛡️ Defesa</b>.</p>
         <p>Um Personagem <b>recém-jogado não ataca</b> no mesmo turno (💤), e quem foi movido também não. Dá para <b>juntar ataques</b> para derrubar um alvo forte!</p>`,
       vis: () => `<div class="duel">
         <div class="duel-row"><span class="n" style="color:#9dffc6">⚔️7 → 🛡️5</span><span class="r">O alvo tem 5 de vida: <b>cai</b>.</span></div>
@@ -101,7 +101,7 @@
     },
     {
       t: 'Perks e Suportes',
-      body: `<p><b>Perks</b> são Suportes Permanentes com efeito passivo forte. Eles ocupam uma das 2 vagas 🛠️ e <b>duram 4 turnos seus</b> (o número ⏳ na carta mostra quantos faltam).</p>
+      body: `<p><b>Perks</b> são Suportes Permanentes com efeito passivo forte. Eles ocupam uma das 2 vagas 🛠️ e <b>duram 3 turnos seus</b> (o número ⏳ na carta mostra quantos faltam).</p>
         <ul><li>⚔️ <b>Torcida Organizada</b>: seus ataques causam +1 de dano.</li>
         <li>🧾 <b>Boleto Vencido</b>: ataques ao herói causam +2.</li>
         <li>🤫 <b>Fofoca do Churrasco</b>: quando um Personagem seu cai, você compra 1.</li>

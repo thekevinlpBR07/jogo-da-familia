@@ -132,6 +132,29 @@
   // ================================================================ solo
   let game = null;
   let aiTimer = null;
+  // ---- relatório de erros: guarda os últimos erros no aparelho para eu poder corrigir
+  const ERR_KEY = 'jf-erros';
+  G.logError = (e, ctx, extra) => {
+    try {
+      const list = JSON.parse(localStorage.getItem(ERR_KEY) || '[]');
+      const s = game && game.s;
+      list.push({ quando: new Date().toISOString(), onde: ctx, erro: String((e && e.message) || e).slice(0, 200), pilha: String((e && e.stack) || '').split(String.fromCharCode(10)).slice(0, 4).join(' | ').slice(0, 400), turno: s && s.turn, ativo: s && s.active, pendente: s && s.pending ? s.pending.purpose + '/' + s.pending.player : null, evento: s && s.event, extra: extra ? JSON.stringify(extra).slice(0, 200) : undefined, log: s ? s.log.slice(-6).map((l) => l.t) : undefined });
+      localStorage.setItem(ERR_KEY, JSON.stringify(list.slice(-15)));
+    } catch (x) { /* sem armazenamento */ }
+  };
+  G.errorReport = () => { try { const l = JSON.parse(localStorage.getItem(ERR_KEY) || '[]'); return l.length ? JSON.stringify(l, null, 1) : ''; } catch (x) { return ''; } };
+  window.addEventListener('error', (e) => G.logError(e.error || e.message, 'janela', { arq: (e.filename || '').split('/').pop(), linha: e.lineno }));
+  window.addEventListener('unhandledrejection', (e) => G.logError(e.reason, 'promessa'));
+  // executa uma ação; se der erro, desfaz a jogada (volta ao estado de antes) em vez de travar a partida
+  function safeAct(p, a) {
+    const snap = JSON.stringify(game.s);
+    try { return G.act(game.s, p, a); }
+    catch (e) {
+      console.error(e); G.logError(e, 'jogada', { p, a });
+      try { game.s = JSON.parse(snap); } catch (x) { /* mantém o estado */ }
+      return { ok: false, err: 'Algo deu errado nessa jogada e ela foi desfeita. Tente outra.' };
+    }
+  }
   const coachToggle = $('#coach-toggle');
   coachToggle.checked = store.get('coach', '1') === '1';
   coachToggle.onchange = () => store.set('coach', coachToggle.checked ? '1' : '0');
@@ -155,7 +178,7 @@
     show('game');
     G.Music.start();
     game.send = (a) => {
-      const r = G.act(game.s, 0, a);
+      const r = safeAct(0, a);
       if (!r.ok) { UI.toast(r.err, 'err'); G.sfx('error'); return; }
       publish();
     };
@@ -208,7 +231,7 @@
     show('game');
     G.Music.start();
     game.send = (a) => {
-      const r = G.act(game.s, 0, a);
+      const r = safeAct(0, a);
       if (!r.ok) { UI.toast(r.err, 'err'); G.sfx('error'); return; }
       publish();
     };
@@ -238,10 +261,18 @@
     const token = game.token;
     aiTimer = setTimeout(() => {
       if (!game || game.token !== token) return;
-      const a = G.AI.step(s, 1, game.level);
-      if (!a) return;
-      const r = G.act(s, 1, a);
-      if (!r.ok) { console.warn('IA:', r.err, a); if (!s.pending) G.act(s, 1, { t: 'endTurn' }); }
+      const st = game.s;
+      let a = null;
+      try { a = G.AI.step(st, 1, game.level); }
+      catch (e) { console.error(e); G.logError(e, 'IA', { nivel: game.level }); try { a = G.AI.step(st, 1, 'medium'); } catch (e2) { a = null; } }
+      if (!a) { a = st.pending ? { t: 'choose', v: G.AI.quick(st, st.pending) } : { t: 'endTurn' }; }
+      const r = safeAct(1, a);
+      if (!r.ok) {
+        console.warn('IA:', r.err, a);
+        const cur = game.s;
+        if (cur.pending && cur.pending.player === 1) safeAct(1, { t: 'choose', v: G.AI.quick(cur, cur.pending) });
+        else if (!cur.pending && cur.active === 1) safeAct(1, { t: 'endTurn' });
+      }
       publish();
     }, s.pending ? 700 : 1000);
   }
@@ -331,7 +362,7 @@
       hostBroadcast();
     } else if (m.type === 'hello') { game = { mode: 'host', guest: { name: String(m.name || 'Convidado').slice(0, 16), avatar: C[m.avatar] ? m.avatar : 'p05' } }; hostNewGame(); }
     else if (m.type === 'act' && game && game.s) {
-      const r = G.act(game.s, 1, m.a);
+      const r = safeAct(1, m.a);
       if (!r.ok) Net.send({ type: 'err', msg: r.err });
       hostBroadcast();
     } else if (m.type === 'emote') UI.showEmote(m.e, game && game.guest.name);
@@ -360,7 +391,7 @@
     UI.start({
       me: 0, mode: 'online', avatars: game.avatars,
       send: (a) => {
-        const r = G.act(game.s, 0, a);
+        const r = safeAct(0, a);
         if (!r.ok) { UI.toast(r.err, 'err'); G.sfx('error'); return; }
         hostBroadcast();
       },

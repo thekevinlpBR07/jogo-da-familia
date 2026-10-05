@@ -49,7 +49,7 @@
     if (!d) return;
     const status = [];
     if (inst) {
-      if (inst.dmg > 0 && d.type === 'char') status.push(`💔 Danificado: vida atual ${Math.max(0, d.def - inst.dmg)} de ${d.def} (recupera tudo no início do turno do dono)`);
+      if (inst.dmg > 0 && d.type === 'char') status.push(`💔 Danificado: vida atual ${Math.max(0, d.def - inst.dmg)} de ${d.def} (o dano fica até ser curado)`);
       if (inst.stunned) status.push('💫 Atordoado');
       if (inst.protStun) status.push('🛡️ Não pode ser Atordoado até o próximo turno do dono');
       if (inst.protMove) status.push('🔒 Não pode ser movido por efeitos adversários');
@@ -187,7 +187,19 @@
     return a && a.offsetParent ? a : b && b.offsetParent ? b : a || b;
   };
 
+  // proteção: se algo der erro ao desenhar, a mesa nunca fica travada (animating volta a false) e o erro é registrado
   async function apply(v) {
+    try { await applyInner(v); }
+    catch (e) {
+      console.error(e);
+      if (G.logError) G.logError(e, 'desenho da mesa');
+      animating = false;
+      try { render(); } catch (e2) { console.error(e2); }
+      try { if (V && V.winner == null && V.pending && V.pending.player === me) showPending(V.pending); } catch (e3) { console.error(e3); }
+    }
+  }
+  UI.forceUnlock = () => { animating = false; try { render(); } catch (e) { console.error(e); } };
+  async function applyInner(v) {
     const first = !V;
     let fresh = v.fx.filter((f) => f.seq > lastFx);
     if (v.fx.length) lastFx = Math.max(lastFx, v.fx[v.fx.length - 1].seq);
@@ -568,7 +580,7 @@
   // marcação de dano: vida atual / vida total (a DEF impressa), barra e rachaduras
   function damageMark(d, c) {
     const hp = Math.max(0, d.def - c.dmg), pct = Math.round((hp / d.def) * 100);
-    return `<div class="hpbar" title="Vida atual ${hp} de ${d.def}"><i style="width:${pct}%"></i></div><div class="dmgtag" title="Vida atual ${hp} de ${d.def} (dano ${c.dmg}); recupera tudo no início do turno do dono">💔 ${hp}/${d.def}</div><div class="cracks"></div>`;
+    return `<div class="hpbar" title="Vida atual ${hp} de ${d.def}"><i style="width:${pct}%"></i></div><div class="dmgtag" title="Vida atual ${hp} de ${d.def} (dano ${c.dmg}); o dano fica até ser curado">💔 ${hp}/${d.def}</div><div class="cracks"></div>`;
   }
   function cardEl(c, opts) {
     opts = opts || {};
@@ -581,8 +593,18 @@
     if (c.protMove) badges += '<b title="Não pode ser movido por efeitos adversários">🔒</b>';
     if (c.canAtkT === V.turn) badges += '<b title="Pode atacar neste turno">⚽</b>';
     if (c.left > 0) badges += `<b class="perkleft" title="Perk: dura mais ${c.left} turno(s) seu(s)">⏳${c.left}</b>`;
+    let aBonus = 0, shield = false;
+    if (opts.field && opts.owner != null && d.type === 'char' && (opts.zone === 'atk' || opts.zone === 'def' || opts.zone === 'apoio')) {
+      const has = (p, f) => V.players[p].perms.some((x) => C[x.id].fx === f);
+      if (has(opts.owner, 'torcida')) aBonus += 1;
+      if (has(opts.owner, 'boleto')) aBonus += 2;
+      if (c.bonusT === V.turn) aBonus += 3;
+      if (opts.zone === 'def' && has(1 - opts.owner, 'sofa')) shield = true;
+    }
+    if (aBonus) badges += `<b class="modb up" title="Ataque aumentado por efeito: +${aBonus}">⚔️+${aBonus}</b>`;
+    if (shield) badges += '<b class="modb down" title="Sofá: este Defensor sofre 2 de dano a menos">🛋️-2</b>';
     el.innerHTML = `<img src="${d.img}" alt="${esc(G.fullName(d))}" draggable="false">` +
-      (d.type === 'char' && !opts.noStats ? `<div class="stats"><span class="a">⚔️${d.atk}</span><span class="d ${c.dmg ? 'hurt' : ''}">🛡️${d.def - (c.dmg || 0)}</span></div>` : '') +
+      (d.type === 'char' && !opts.noStats ? `<div class="stats"><span class="a ${aBonus ? 'buff' : ''}">⚔️${d.atk + aBonus}</span><span class="d ${c.dmg ? 'hurt' : ''} ${shield ? 'buff' : ''}">🛡️${d.def - (c.dmg || 0)}</span></div>` : '') +
       (badges ? `<div class="badges">${badges}</div>` : '') +
       (d.type === 'char' && c.dmg > 0 && !opts.noStats ? damageMark(d, c) : '');
     if (c.dmg > 0 && d.type === 'char') el.classList.add('damaged');
@@ -607,7 +629,7 @@
       s.dataset.zone = z;
       s.dataset.p = p;
       if (card) {
-        const el = cardEl(card, { field: true, owner: p, noStats: z === 'perms' });
+        const el = cardEl(card, { field: true, owner: p, zone: z, noStats: z === 'perms' });
         decorateFieldCard(el, card, p, z, L);
         s.appendChild(el);
       } else {
@@ -978,6 +1000,7 @@
       <button class="btn" data-log>🧾 Histórico da partida</button>
       <button class="btn" data-sound>${G.sfx.isOn() ? '🔊 Efeitos ligados' : '🔇 Efeitos desligados'}</button>
       ${document.body.classList.contains('online') ? `<button class="btn" data-mic>${G.Voice.micOn ? '🎙️ Microfone: ligado' : '🎤 Microfone: desligado'}</button><button class="btn" data-hear>${G.Voice.hearOn ? '🔊 Ouvindo o outro jogador' : '🔇 Voz do outro: silenciada'}</button>` : ''}
+      <button class="btn" data-errs>🧾 Copiar relatório de erros</button>
       <button class="btn" data-skip>${UI.autoSkip() ? '⏭ Pular turno sozinho sem jogadas: ligado' : '⏭ Pular turno sozinho sem jogadas: desligado'}</button>
       <button class="btn" data-music>🎵 Música: ${G.Music.label().replace(/^\S+\s/, '')}</button>
       <button class="btn wine" data-quit>🏳️ Sair da partida</button>
@@ -986,6 +1009,7 @@
     $('[data-log]', m).onclick = () => { m.close(); UI.showLog(); };
     $('[data-rules]', m).onclick = () => { m.close(); UI.rules(); };
     $('[data-sound]', m).onclick = (e) => { const on = G.sfx.toggle(); e.target.textContent = on ? '🔊 Efeitos ligados' : '🔇 Efeitos desligados'; };
+    $('[data-errs]', m).onclick = () => { const r = G.errorReport ? G.errorReport() : ''; if (navigator.clipboard && r) navigator.clipboard.writeText(r).then(() => UI.toast('Relatório copiado. Cole no chat para eu corrigir. 🧾'), () => UI.toast('Não consegui copiar: ' + r.slice(0, 120), 'err', 6000)); else UI.toast(r ? r.slice(0, 160) : 'Nenhum erro registrado. ✅', '', 4000); };
     $('[data-skip]', m).onclick = (e) => { UI.setAutoSkip(!UI.autoSkip()); e.target.textContent = UI.autoSkip() ? '⏭ Pular turno sozinho sem jogadas: ligado' : '⏭ Pular turno sozinho sem jogadas: desligado'; };
     $('[data-music]', m).onclick = () => { m.close(); UI.musicPicker(); };
     const mic = $('[data-mic]', m), hear = $('[data-hear]', m);
@@ -1090,12 +1114,12 @@
       <tr><td>🤝 Apoio</td><td>2</td><td>Não atacam nem defendem. Só podem ser atacados quando o adversário não tem Defensores. Ativam efeitos 🤝.</td></tr>
       <tr><td>🛠️ Suportes</td><td>2</td><td>Suportes Permanentes ficam aqui.</td></tr></table>
       <h4>Turno</h4><p><b>COMPRE</b> 1 Personagem (se tiver menos de 7 cartas) → faça o que quiser com sua energia, em qualquer ordem: <b>jogar Personagens e Suportes</b>, <b>comprar 1 Suporte</b> (⚡1, uma vez por turno), <b>mover</b> um Personagem (⚡1, uma vez por Personagem), usar <b>habilidades Ativáveis</b> (uma vez por turno cada), e <b>atacar</b> com cada Personagem pronto → <b>ENCERRE</b> o turno. A cada 2 turnos seus você também compra 1 Suporte automaticamente.</p>
-      <h4>Combate</h4><p>O atacante causa o próprio ⚔️ de dano. Um Personagem atacado <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo. O dano fica na carta até o <b>início do turno do dono dela</b>, e a carta cai quando o dano chega à sua 🛡️. Dá para combinar vários ataques para derrubar um alvo.</p>
+      <h4>Combate</h4><p>O atacante causa o próprio ⚔️ de dano. Um Personagem atacado <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo. O dano <b>fica na carta para sempre</b> até que um efeito de <b>cura</b> o remova, e a carta cai quando o dano chega à sua 🛡️. Cartas <b>Ligeiro</b> podem atacar assim que entram, mas só atacam Personagens. Dá para combinar vários ataques para derrubar um alvo.</p>
       <p>Contra um herói com Defensores, ataque os Defensores. <b>Desafio</b>: atacar um Personagem do Ataque inimigo. Sem Defensores, <b>todos os seus atacantes podem atacar o herói</b> (cada um tirando vida igual ao seu ⚔️, sem contra-ataque) <b>ou os Personagens em 🤝 Apoio</b>.</p>
       <h4>Descartar e comprar</h4><p>Uma vez por turno, pague <b>⚡1</b> para descartar 1 carta da mão e comprar 1 do mesmo tipo (Personagem por Personagem, Suporte por Suporte). Serve para trocar uma carta que não dá para jogar.</p>
-      <h4>Perks (Suportes Permanentes)</h4><p>Perks ocupam uma das 2 vagas 🛠️, têm efeito passivo e <b>duram 4 turnos seus</b> (o ⏳ na carta mostra quantos faltam): <b>Torcida Organizada</b> (+1 de dano em todos os ataques), <b>Boleto Vencido</b> (+2 de dano no herói), <b>Fofoca do Churrasco</b> (compra 1 quando um Personagem seu cai), <b>Fiscal da Cerveja</b> (adversário perde ❤️1 quando seu Personagem derrota outro), <b>Soneca Estratégica</b> (recupera ❤️2 se ninguém atacou), <b>Bill</b> (compra extra), <b>Sofá</b> (Defensores sofrem 2 de dano a menos) e <b>Cristal</b> (cura ❤️1 por turno).</p>
+      <h4>Perks (Suportes Permanentes)</h4><p>Perks ocupam uma das 2 vagas 🛠️, têm efeito passivo e <b>duram 3 turnos seus</b> (o ⏳ na carta mostra quantos faltam): <b>Torcida Organizada</b> (+1 de dano em todos os ataques), <b>Boleto Vencido</b> (+2 de dano no herói), <b>Fofoca do Churrasco</b> (compra 1 quando um Personagem seu cai), <b>Fiscal da Cerveja</b> (adversário perde ❤️1 quando seu Personagem derrota outro), <b>Soneca Estratégica</b> (recupera ❤️2 se ninguém atacou), <b>Bill</b> (compra extra), <b>Sofá</b> (Defensores sofrem 2 de dano a menos) e <b>Cristal</b> (cura ❤️1 por turno).</p>
       <h4>Dicas de energia e custo</h4><p>As cartas custam de <b>⚡1 a ⚡10</b> (o número no selo dourado). Jogar cartas baratas cedo e guardar as fortes para depois é normal. Mover custa ⚡1, só vale uma vez por Personagem por turno, e <b>quem se moveu não ataca</b> naquele turno. Personagem recém-jogado também só ataca no turno seguinte. O dano que uma carta sofreu aparece em vermelho na defesa dela.</p>
-      <h4>Atordoado</h4><p>Efeitos de cartas podem Atordoar: não ataca, não usa Ativável, não se move. Continua defendendo. Recupera no fim do próximo turno do dono.</p>
+      <h4>Atordoado</h4><p>Eventos (como o Sono Depois do Almoço) podem Atordoar: não ataca, não usa Ativável, não se move. Continua defendendo. Recupera no fim do próximo turno do dono.</p>
       <h4>Limites</h4><p>Mão: 7 cartas · Energia: ⚡10 · Vida: 25 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>
       <h4>Eventos</h4><p>No máximo 1 Evento fica ativo e ele <b>troca sozinho a cada 3 rodadas</b> (o primeiro entra no fim da 3ª). Ninguém compra nem troca Eventos.</p>
       <h4>Série (melhor de 2 seguidas)</h4><p>Uma série é formada por várias partidas: <b>quem vencer 2 partidas seguidas leva a série</b>. A cada partida os lados trocam: quem começou agora joga em segundo, e vice-versa. Se cada um vencer uma, joga-se a próxima, até alguém vencer duas em sequência.</p>
