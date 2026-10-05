@@ -56,7 +56,7 @@
     [49, 'Adeni', 'a Tranquila', 1, 2, 4, 'b', 'cureRight1', 'No início do seu turno, cure 1 de dano do Personagem à sua direita.'],
     [50, 'Adeni', 'Fada da Calmaria', 5, 5, 6, 'm', 'apoioCureDef2', '🤝 Apoio: no início do seu turno, cure 2 de dano de cada Defensor seu.'],
     [51, 'Adeni', 'Dama da Paz', 3, 4, 5, 'e', 'regenAll', 'No início do seu turno, Adeni cura todo o dano.'],
-    [52, 'Adeni', 'Santa da Paciência', 6, 5, 8, 'l', 'adeniSanta', 'Ao Entrar: recupere ❤️2. Se estava com ❤️1 ou menos, recupere ❤️3 em vez disso.'],
+    [52, 'Adeni', 'Santa da Paciência', 6, 5, 8, 'l', 'adeniSanta', 'Ao Entrar: recupere ❤️2 (10 de vida). Se o seu herói estiver com 5 de vida ou menos, recupere ❤️3 (15 de vida) em vez disso.'],
     [53, 'Fred', 'o Observador', 1, 2, 5, 'b', 'frontResist', 'Em 🛡️: o Personagem em ⚔️ à sua frente tem Resistente 1 (sofre 1 de dano a menos em cada ataque).'],
     [54, 'Fred', 'Analista da Família', 5, 4, 6, 'e', 'actDraw', 'Ativável - ⚡1: compre 1 Personagem, respeitando o limite da mão.', 1],
     [55, 'Fred', 'Oráculo dos Detalhes', 7, 6, 7, 'm', 'fredOraculo', 'Ao Entrar: compre 2 Personagens, respeitando o limite da mão.'],
@@ -143,7 +143,7 @@
   P.forEach(([n, name, title, cost, atk, def, rar, fx, text, ecost, fla]) => {
     CARDS['p' + pad(n)] = {
       id: 'p' + pad(n), type: 'char', name, title, cost, atk, def, rarity: rar, rarityName: RAR[rar],
-      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=91'),
+      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=94'),
       activatable: /^act/.test(fx),
     };
   });
@@ -153,13 +153,13 @@
     CARDS['s' + pad(n)] = {
       dur: DUR[fx] || 0,
       id: 's' + pad(n), type: 'sup', name, title: kind === 'imm' ? 'Imediato' : kind === 'perm' ? (DUR[fx] ? 'Perk' : 'Permanente') : 'Permanente - uso único',
-      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=91'),
+      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=94'),
     };
   });
   E.forEach(([n, name, kind, fx, text]) => {
     CARDS['e' + pad(n)] = {
       id: 'e' + pad(n), type: 'ev', name, title: kind === 'imm' ? 'Evento Imediato' : 'Evento Contínuo',
-      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=91'),
+      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=94'),
     };
   });
 

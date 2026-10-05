@@ -9,7 +9,7 @@
   const ZI = { atk: '⚔️', def: '🛡️', apoio: '🤝' };
   G.ZN = ZN; G.ZI = ZI; G.LIM = LIM;
   // energia máxima (a energia sobe 1 por turno até este valor)
-  G.ENERGY_MAX = 10;
+  Object.defineProperty(G, 'ENERGY_MAX', { get: () => (G.RULES && G.RULES.energyMax) || 10 });
   // Regras ajustáveis (v4: energia que recarrega).
   G.RULES = {
     autoEvent: 3,        // o Evento troca sozinho a cada N rodadas completas (0 = desligado)
@@ -26,6 +26,11 @@
     heartPts: 5,         // 1 ❤️ impresso nas cartas = 5 pontos de vida ("recupere ❤️1" cura 5)
     moveCost: 1,         // mover um Personagem custa ⚡ (1x por Personagem por turno)
     buyCost: 1,
+    energyMax: 20,       // teto da energia por turno
+    secondEnergyTurns: 5, // quem joga em 2º tem ⚡+1 nos primeiros N turnos dele (equilibra a vantagem de começar)
+    secondEnergy: 0,     // (teste) energia extra de quem joga em 2º (ele começa com ⚡1+N e sobe 1 por turno)
+    secondLife: 0,       // (teste) pontos de vida extras de quem joga em 2º
+    defResist: 1,        // todo Defensor (🛡️) sofre N de dano a menos em cada ataque (mínimo 1)
     swapCost: 2,         // trocar 2 Personagens seus de lugar custa ⚡ (1x por turno)
     cycleCost: 1,        // descartar 1 carta da mão e comprar 1 do mesmo tipo (1x por turno)          // comprar 1 Suporte custa ⚡
   };
@@ -119,7 +124,7 @@
     if (evKey(s) === 'discussao') { log(s, 'Discussão Generalizada: ninguém pode recuperar ❤️.'); return 0; }
     const pl = s.players[p];
     const b = pl.life;
-    pl.life = Math.min(G.RULES.lifeStart, pl.life + n * G.RULES.heartPts);
+    pl.life = Math.min(pl.maxLife || G.RULES.lifeStart, pl.life + n * G.RULES.heartPts);
     const g = pl.life - b;
     if (g > 0) { fx(s, { t: 'heal', p, n: g }); const hh = g / G.RULES.heartPts; log(s, `${pn(s, p)} recuperou ${Number.isInteger(hh) ? '❤️' + hh + ' (' + g + ' de vida)' : g + ' de vida'}.`, 'good'); }
     return g;
@@ -403,6 +408,7 @@
     s.evDeck = shuffle(s, G.EV_IDS.map(mk));
     s.first = o.first != null ? o.first : rnd(s) < 0.5 ? 0 : 1;
     s.active = s.first;
+    if (G.RULES.secondLife) { const q = s.players[opp(s.first)]; q.life += G.RULES.secondLife; q.maxLife = q.life; }
     log(s, `🎲 ${pn(s, s.first)} começa a partida.`);
     // mão inicial: 4 Personagens e 2 Suportes, todos baratos (custo até ⚡3) e com pelo menos 1 Personagem de ⚡1,
     // para que nenhuma carta inicial fique parada; ninguém escolhe nem devolve cartas
@@ -532,8 +538,9 @@
       log(s, `${pn(s, p)} jogou em 2º e comprou ${n === 1 ? 'uma carta' : n + ' cartas'} extra.`, 'good');
     }
     // energia: o máximo sobe 1 por turno (até 10) e a energia enche até o máximo; o que sobrou do turno anterior se perde
-    pl.maxE = Math.min(G.ENERGY_MAX, (pl.maxE || 0) + 1);
-    pl.energy = pl.maxE;
+    pl.maxE = Math.min(G.ENERGY_MAX, (pl.maxE || 0) + 1 + (pl.turns === 1 && p !== s.first ? (G.RULES.secondEnergy || 0) : 0));
+    pl.energy = pl.maxE + (p !== s.first && pl.turns <= (G.RULES.secondEnergyTurns || 0) ? 1 : 0);
+    if (p !== s.first && pl.turns === 1 && G.RULES.secondEnergyTurns) log(s, `⚡ ${pn(s, p)} joga em 2º: tem ⚡+1 de energia nos ${G.RULES.secondEnergyTurns} primeiros turnos.`, 'good');
     fx(s, { t: 'energy', p, n: pl.energy });
     if (pl.pendingCoin) { gainE(s, p, pl.pendingCoin); log(s, `${pn(s, p)} jogou em 2º e ganhou ⚡+${pl.pendingCoin} neste turno.`, 'good'); pl.pendingCoin = 0; }
     if (pl.turns === 1 && p !== s.first && G.RULES.secondBonus === 'coin') { gainE(s, p, 1); log(s, `${pn(s, p)} jogou em 2º e ganhou uma moeda: ⚡+1 neste turno.`, 'good'); }
@@ -1154,6 +1161,7 @@
     const f = D(T).fx;
     let r = 0;
     if (O.def.includes(T) && hasPerm(s, o, 'sofa')) r += 2;
+    if (O.def.includes(T)) r += G.RULES.defResist || 0;
     if (f === 'resist1') r += 1;
     if (f === 'resist2') r += 2;
     const z = O.atk.includes(T) ? 'atk' : O.def.includes(T) ? 'def' : O.apoio.includes(T) ? 'apoio' : null;

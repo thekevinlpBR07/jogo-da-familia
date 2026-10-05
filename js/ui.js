@@ -443,13 +443,13 @@
       const f = Math.max(0, Math.min(1, (pl.life - i * K) / K));
       return `<i><s>❤️</s><b style="width:${Math.round(f * 100)}%">❤️</b></i>`;
     }).join('') + `<em class="lifenum">${pl.life}</em>`;
-    const nrg = Array.from({ length: G.ENERGY_MAX }, (_, i) => `<i class="${i < pl.energy ? 'on' : i < pl.maxE ? 'spent' : 'lock'}"></i>`).join('') + `<b>${pl.energy}/${Math.max(pl.maxE, pl.energy)}</b>`;
+    const nrg = Array.from({ length: Math.min(G.ENERGY_MAX, Math.max(10, pl.maxE, pl.energy)) }, (_, i) => `<i class="${i < pl.energy ? 'on' : i < pl.maxE ? 'spent' : 'lock'}"></i>`).join('') + `<b>${pl.energy}/${Math.max(pl.maxE, pl.energy)}</b>`;
     const avatar = (ctl.avatars && ctl.avatars[p]) || 'p01';
     const html = `<div class="plate ${turn ? 'turn' : ''}" data-plate="${p}">
       <div class="avatar" style="${avatarStyle(avatar)}"></div>
       <div class="pname">${esc(pl.name)}${p === me ? '<em>(você)</em>' : ''}</div>
       <div class="hearts" title="Vida">${hearts}</div>
-      <div class="energy" title="Energia: o máximo sobe 1 por turno (até ${G.ENERGY_MAX}) e recarrega todo turno">${nrg}</div>
+      <div class="energy" title="Energia: o máximo sobe 1 por turno (até ${G.ENERGY_MAX}) e recarrega todo turno. Quem joga em 2º tem ⚡+1 nos ${G.RULES.secondEnergyTurns} primeiros turnos.">${nrg}</div>
       <div class="meta"><span title="Cartas na mão">🂠 ${pl.hand.length}</span><span title="Descarte">🗑️ ${pl.discard.length}</span></div>
     </div>`;
     const compactHtml = `<div class="plate ${turn ? 'turn' : ''}" data-plate="${p}">
@@ -1204,10 +1204,10 @@
     const m = UI.modal(`<h3>Regras rápidas</h3><div class="rules-doc">
       <h4>Objetivo</h4><p>Reduza a vida do adversário de <b>25 para 0</b>. (Nas cartas, 1 ❤️ = 5 pontos de vida: "recupere ❤️1" cura 5.)</p>
       <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 2 Suportes na mão (ninguém escolhe nem devolve cartas), todos baratos: custo até ⚡3. A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de cada jogador só existe ⚡1</b> e nenhum efeito dá energia extra. Todo mundo começa com <b>pelo menos 2 Personagens de custo ⚡1</b> para jogar no primeiro turno. <b>As cartas vêm embaralhadas, mas só chegam cartas de até ⚡2 acima da sua energia:</b> cada carta comprada é a primeira do baralho cujo custo é no máximo a sua energia do turno + 2 (na mão inicial: até ⚡3). As caras só chegam quando você já está perto de poder jogá-las.</p>
-      <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡10</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 10.</p>
+      <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡20</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 20. <b>Quem joga em 2º tem ⚡+1 nos 5 primeiros turnos</b> dele (⚡2, ⚡3, ⚡4, ⚡5 e ⚡6), para compensar a vantagem de começar.</p>
       <h4>Campo</h4><table><tr><th>Zona</th><th>Limite</th><th>Função</th></tr>
       <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram, exceto Ligeiros).</td></tr>
-      <tr><td>🛡️ Defesa</td><td>3</td><td>Protegem a sua vida: enquanto existir um Defensor, o herói não pode ser atacado.</td></tr>
+      <tr><td>🛡️ Defesa</td><td>3</td><td>Protegem a sua vida: enquanto existir um Defensor, o herói não pode ser atacado. <b>Todo Defensor sofre 1 de dano a menos</b> em cada ataque (mínimo 1).</td></tr>
       <tr><td>🤝 Apoio</td><td>2</td><td>Não atacam nem defendem. Só podem ser atacados quando o adversário não tem Defensores. Ativam efeitos 🤝.</td></tr>
       <tr><td>🛠️ Suportes</td><td>2</td><td>Suportes Permanentes ficam aqui.</td></tr></table>
       <h4>Posição: espaços fixos</h4><p>Cada zona tem espaços fixos (esquerda, meio e direita). Ao jogar um Personagem, toque no <b>espaço</b> onde ele vai ficar; ele não muda de lugar sozinho. Vários efeitos usam a posição: o <b>vizinho</b> (espaço ao lado, na mesma zona) e a <b>frente</b> (um Defensor está "atrás" do atacante do mesmo espaço). <b>Mover</b> (⚡1) leva um Personagem a outro espaço livre, e <b>Trocar de lugar</b> (⚡2, uma vez por turno) troca dois Personagens seus de lugar. Quem foi movido ou trocado não ataca naquele turno.</p>
@@ -1218,7 +1218,7 @@
       <h4>Perks (Suportes Permanentes)</h4><p>Perks ocupam uma das 2 vagas 🛠️, têm efeito passivo e <b>duram 3 turnos seus</b> (o ⏳ na carta mostra quantos faltam): <b>Torcida Organizada</b> (+1 de dano em todos os ataques), <b>Boleto Vencido</b> (+2 de dano no herói), <b>Fofoca do Churrasco</b> (compra 1 quando um Personagem seu cai), <b>Fiscal da Cerveja</b> (adversário perde ❤️1 quando seu Personagem derrota outro), <b>Soneca Estratégica</b> (recupera ❤️2 se ninguém atacou), <b>Bill</b> (compra extra), <b>Sofá</b> (Defensores sofrem 2 de dano a menos), <b>Cristal</b> (cada Personagem seu cura 2 de dano no início do seu turno) e <b>Jardim</b> (Personagens em Apoio ou Defesa curam 3 de dano no fim do seu turno).</p>
       <h4>Dicas de energia e custo</h4><p>As cartas custam de <b>⚡1 a ⚡10</b> (o número no selo dourado). Jogar cartas baratas cedo e guardar as fortes para depois é normal. Mover custa ⚡1, só vale uma vez por Personagem por turno, e <b>quem se moveu não ataca</b> naquele turno. Personagem recém-jogado também só ataca no turno seguinte. O dano que uma carta sofreu aparece em vermelho na defesa dela.</p>
       <h4>Atordoado</h4><p>Eventos (como o Sono Depois do Almoço) podem Atordoar: não ataca, não usa Ativável, não se move. Continua defendendo. Recupera no fim do próximo turno do dono.</p>
-      <h4>Limites</h4><p>Mão: 7 cartas · Energia: ⚡10 · Vida: 25 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>
+      <h4>Limites</h4><p>Mão: 7 cartas · Energia: até ⚡20 · Vida: 25 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>
       <h4>Eventos</h4><p>No máximo 1 Evento fica ativo e ele <b>troca sozinho a cada 3 rodadas</b> (o primeiro entra no fim da 3ª). Ninguém compra nem troca Eventos.</p>
       <h4>Série (melhor de 2 seguidas)</h4><p>Uma série é formada por várias partidas: <b>quem vencer 2 partidas seguidas leva a série</b>. A cada partida os lados trocam: quem começou agora joga em segundo, e vice-versa. Se cada um vencer uma, joga-se a próxima, até alguém vencer duas em sequência.</p>
       <h4>Cansaço</h4><p>Se a partida passar do <b>turno 80</b> (cerca de 40 rodadas), quem começa o turno perde <b>3 de vida</b> — assim nenhum empate dura para sempre.</p>
