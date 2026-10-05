@@ -12,9 +12,18 @@
   const valId = (id) => val({ id });
 
   const hp = (c) => D(c).def - (c.dmg || 0);
+  // valor das posições: ataque extra (auras) e redução de dano (Resistente)
+  function posVal(s, p) {
+    const pl = s.players[p];
+    let atk = 0, red = 0;
+    pl.atk.forEach((c) => { atk += G.effAtk(s, p, c) - D(c).atk; red += G.incomingRed(s, p, c); });
+    pl.def.forEach((c) => { red += G.incomingRed(s, p, c); });
+    return { atk, red };
+  }
   function side(s, p) {
     const pl = s.players[p];
-    let v = pl.life * 2.8 + pl.energy * 0.12 + pl.hand.length * 1.7 + pl.perms.length * 2.5;
+    const pv = posVal(s, p);
+    let v = pv.atk * 1.4 + pv.red * 1.2 + pl.life * 2.8 + pl.energy * 0.12 + pl.hand.length * 1.7 + pl.perms.length * 2.5;
     pl.atk.forEach((c) => { const d = D(c); v += 3 + d.atk * 1.2 + hp(c) * 0.35 - (c.stunned ? 2 : 0); });
     pl.def.forEach((c) => { const d = D(c); v += 3 + hp(c) * 0.9 + d.atk * 0.25 - (c.stunned ? 0.5 : 0); });
     pl.apoio.forEach((c) => { v += 2.5 + D(c).cost * 0.6; });
@@ -72,6 +81,12 @@
         switch (pd.purpose) {
           case 'mulligan': pick = opts.slice().sort((a, b) => C[b.id].cost - C[a.id].cost)[0]; break;
           case 'pickToHand': case 'protect': case 'unstun': case 'rescue': case 'taxiIn': case 'g220': case 'recoverSup': case 'tutor': case 'espelho': pick = byVal(1)[0]; break;
+          case 'pingTarget': {
+            const n = pd.dmg || 2;
+            const sc = (o) => { const L = G.locate(s, o.v); if (!L) return -1; const d = C[L.card.id]; return (d.def - (L.card.dmg || 0) <= n ? 100 : 0) + d.atk * 1.5 + d.cost * 0.3 + (L.card.dmg || 0) * 0.5; };
+            pick = opts.slice().sort((a, b) => sc(b) - sc(a))[0]; break;
+          }
+          case 'ligPick': return opts.filter((o) => { const L = G.locate(s, o.v); return L && L.z === 'atk' && L.card.enteredT === s.turn; }).slice(0, 2).map((o) => o.v);
           case 'bolaTarget': pick = opts.slice().sort((a, b) => C[b.id].atk - C[a.id].atk)[0]; break;
           case 'cureHaste': case 'cureProtect': case 'cureOne': { // cura quem mais perdeu vida (ataque forte desempata)
             const dm = (o) => { const L = G.locate(s, o.v); return L ? (L.card.dmg || 0) * 2 + C[L.card.id].atk * 0.1 : 0; };
@@ -218,7 +233,8 @@
   const WDEF = { life: 2.271, en: 0.108, hand: 0.812, perm: 3.093, atkBase: 4.92, atkA: 2.885, atkHp: 0.786, stunA: 0.813, defBase: 3.175, defHp: 0.733, defA: 0.197, stunD: 0.515, apBase: 1.537, apCost: 0.586, noDef: 5.438, lowL: 2.584, oppLow: 1.609, waste: 0.599, move: 1.509, buy: 1.833, thr: 0.962, thrO: 0.334 };
   function sideH(s, p, w) {
     const pl = s.players[p];
-    let v = pl.life * w.life + pl.energy * w.en + pl.hand.length * w.hand + pl.perms.length * w.perm;
+    const pv = posVal(s, p);
+    let v = pv.atk * w.atkA + pv.red * 1.5 + pl.life * w.life + pl.energy * w.en + pl.hand.length * w.hand + pl.perms.length * w.perm;
     pl.atk.forEach((c) => { const d = D(c); v += w.atkBase + d.atk * w.atkA + hp(c) * w.atkHp - (c.stunned ? w.stunA : 0); });
     pl.def.forEach((c) => { const d = D(c); v += w.defBase + hp(c) * w.defHp + d.atk * w.defA - (c.stunned ? w.stunD : 0); });
     pl.apoio.forEach((c) => { v += w.apBase + D(c).cost * w.apCost; });

@@ -100,6 +100,15 @@
       vis: () => card('p27', 'filter:grayscale(.7) brightness(.8);transform:rotate(-10deg)') + `<div style="font-size:60px">💫</div>`,
     },
     {
+      t: 'Posição importa 📍',
+      body: `<p>Cada zona tem <b>espaços fixos</b>: ao jogar um Personagem, toque no espaço onde ele vai ficar. Vários efeitos usam a posição:</p>
+        <ul><li><b>Vizinho</b>: o espaço ao lado, na mesma zona (ex.: "o Personagem à sua direita").</li>
+        <li><b>Frente</b>: um Defensor fica atrás do atacante do mesmo espaço e pode dar bônus a ele.</li>
+        <li><b>Mover</b> (⚡1) leva um Personagem a outro espaço livre; <b>Trocar de lugar</b> (⚡2, 1x por turno) troca dois Personagens seus.</li></ul>
+        <p>Efeitos de vizinho e de frente somem se a carta que dá o bônus cair, então proteja quem ajuda!</p>`,
+      vis: () => card('p22', 'transform:rotate(-7deg)') + card('p05', 'transform:translateY(-10px)') + card('p53', 'transform:rotate(7deg)'),
+    },
+    {
       t: 'Perks e Suportes',
       body: `<p><b>Perks</b> são Suportes Permanentes com efeito passivo forte. Eles ocupam uma das 2 vagas 🛠️ e <b>duram 3 turnos seus</b> (o número ⏳ na carta mostra quantos faltam).</p>
         <ul><li>⚔️ <b>Torcida Organizada</b>: seus ataques causam +1 de dano.</li>

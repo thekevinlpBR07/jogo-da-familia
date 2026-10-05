@@ -202,7 +202,7 @@
     publish();
   };
   // ---- partida contra o computador fica salva no aparelho: dá para sair e continuar depois
-  const SAVE_KEY = 'jf-solo', SAVE_VER = 'v5';
+  const SAVE_KEY = 'jf-solo', SAVE_VER = 'v6';
   function saveSolo() {
     try {
       if (!game || game.mode !== 'ai') return;

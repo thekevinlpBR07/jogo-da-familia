@@ -412,7 +412,7 @@
 
   // ================================================================ legalidade / seleção
   function myTurnFree() { return V && !animating && V.winner == null && !V.pending && V.active === me; }
-  function legalNow() { return myTurnFree() ? G.legal(V, me) : []; }
+  function legalNow() { return myTurnFree() ? G.legal(V, me, { allSlots: true }) : []; }
   function stillValid() {
     const L = legalNow();
     return L.some((a) => a.uid === sel.uid);
@@ -596,14 +596,13 @@
     let aBonus = 0, shield = false;
     const mods = [];
     if (opts.field && opts.owner != null && d.type === 'char' && (opts.zone === 'atk' || opts.zone === 'def' || opts.zone === 'apoio')) {
-      const has = (p, f) => V.players[p].perms.some((x) => C[x.id].fx === f);
-      if (has(opts.owner, 'torcida')) { aBonus += 1; mods.push(['📣', '+1⚔️', 'up', 'Torcida Organizada: +1 de ataque']); }
-      if (has(opts.owner, 'boleto')) { aBonus += 2; mods.push(['🧾', '+2⚔️', 'up', 'Boleto Vencido: +2 de dano nos ataques ao herói inimigo']); }
-      if (c.bonusT === V.turn) { aBonus += 3; mods.push(['⚽', '+3⚔️', 'up', 'Bola: +3 de ataque neste turno']); }
-      if (opts.zone === 'atk' && V.event && C[V.event].fx === 'jogoDecisivo') { aBonus += 1; mods.push(['🏆', '+1⚔️', 'up', 'Domingo de Jogo Decisivo: +1 de ataque']); }
-      if (opts.zone === 'def' && has(1 - opts.owner, 'sofa')) { shield = true; mods.push(['🛋️', '−2🛡️', 'down', 'Sofá: este Defensor sofre 2 de dano a menos']); }
+      const ea = G.effAtk(V, opts.owner, c) - d.atk;
+      if (ea > 0) { aBonus = ea; mods.push(['⚔️', '+' + ea + '⚔️', 'up', 'Ataque aumentado por perks, eventos ou vizinhos: +' + ea]); }
+      const rd = G.incomingRed(V, opts.owner, c);
+      if (rd > 0) { shield = true; mods.push(['🛡️', '−' + rd + ' dano', 'down', 'Resistente: sofre ' + rd + ' de dano a menos em cada ataque (mínimo 1)']); }
+      if (opts.zone === 'atk' && V.players[opts.owner].perms.some((x) => C[x.id].fx === 'boleto')) mods.push(['🧾', '+2 herói', 'up', 'Boleto Vencido: +2 de dano nos ataques ao herói inimigo']);
     }
-    const rib = mods.length ? `<div class="modrib">${mods.map((m) => `<span class="${m[2]}" title="${m[3]}">${m[0]} ${m[1]}</span>`).join('')}</div>` : '';
+    const rib = mods.length ? `<div class="modrib">${mods.map((m) => `<span class="${m[2]}" title="${m[3]}">${m[1]}</span>`).join('')}</div>` : '';
     el.innerHTML = `<img src="${d.img}" alt="${esc(G.fullName(d))}" draggable="false">` +
       (d.type === 'char' && !opts.noStats ? `<div class="stats"><span class="a ${aBonus ? 'buff' : ''}">⚔️${d.atk + aBonus}</span><span class="d ${c.dmg ? 'hurt' : ''} ${shield ? 'buff' : ''}">🛡️${d.def - (c.dmg || 0)}</span></div>` : '') +
       rib +
@@ -632,6 +631,7 @@
       s.className = 'slot z-' + (z === 'perms' ? 'perm' : z);
       s.dataset.zone = z;
       s.dataset.p = p;
+      s.dataset.slot = idx;
       if (card) {
         const el = cardEl(card, { field: true, owner: p, zone: z, noStats: z === 'perms' });
         decorateFieldCard(el, card, p, z, L);
@@ -639,20 +639,20 @@
       } else {
         s.classList.add('empty');
         s.innerHTML = `<span class="zicon">${zoneIcon[z]}</span><span class="zlabel">${zoneLabel[z]}</span>`;
-        if (mine && z !== 'perms') decorateSlot(s, z, L);
+        if (mine && z !== 'perms') decorateSlot(s, z, L, idx);
       }
       return s;
     };
     const col = (z, n) => {
       const c = document.createElement('div');
       c.className = 'col';
-      for (let i = 0; i < n; i++) c.appendChild(makeSlot(z, pl[z][i], i));
+      for (let i = 0; i < n; i++) c.appendChild(makeSlot(z, z === 'perms' ? pl[z][i] : pl[z].find((x) => x.slot === i) || (pl[z][i] && pl[z][i].slot == null ? pl[z][i] : null), i));
       return c;
     };
     const row = (z) => {
       const r = document.createElement('div');
       r.className = 'row';
-      for (let i = 0; i < 3; i++) r.appendChild(makeSlot(z, pl[z][i], i));
+      for (let i = 0; i < 3; i++) r.appendChild(makeSlot(z, pl[z].find((x) => x.slot === i) || (pl[z][i] && pl[z][i].slot == null ? pl[z][i] : null), i));
       return r;
     };
     const rows = document.createElement('div');
@@ -664,11 +664,11 @@
     box.appendChild(col('perms', 2));
   }
 
-  function decorateSlot(s, z, L) {
+  function decorateSlot(s, z, L, idx) {
     if (!sel) return;
     let a = null;
-    if (sel.kind === 'hand') a = L.find((x) => x.t === 'playChar' && x.uid === sel.uid && x.zone === z);
-    if (sel.kind === 'field') a = L.find((x) => x.t === 'move' && x.uid === sel.uid && x.zone === z);
+    if (sel.kind === 'hand') a = L.find((x) => x.t === 'playChar' && x.uid === sel.uid && x.zone === z && (x.slot == null || x.slot === idx));
+    if (sel.kind === 'field') a = L.find((x) => x.t === 'move' && x.uid === sel.uid && x.zone === z && (x.slot == null || x.slot === idx));
     if (!a) return;
     s.classList.add('drop');
     if (a.t === 'playChar') {
@@ -681,12 +681,16 @@
   function decorateFieldCard(el, c, p, z, L) {
     const mine = p === me;
     if (mine) {
+      if (sel && sel.kind === 'swap' && sel.uid !== c.uid) {
+        const sw = L.find((x) => x.t === 'swap' && ((x.a === sel.uid && x.b === c.uid) || (x.b === sel.uid && x.a === c.uid)));
+        if (sw) { el.classList.add('swap-target'); el.onclick = () => { G.sfx('click'); sel = null; ctl.send(sw); }; return; }
+      }
       const acts = L.filter((a) => a.uid === c.uid);
       const canAtk = acts.some((a) => a.t === 'attack');
       if (canAtk) el.classList.add('can-attack');
-      const hasAbility = C[c.id].activatable && myTurnFree();
+      const hasAbility = (C[c.id].activatable && myTurnFree()) || L.some((x) => x.t === 'swap' && (x.a === c.uid || x.b === c.uid));
       if ((acts.length || hasAbility) && !canAtk) el.classList.add('selectable');
-      if (sel && sel.kind === 'field' && sel.uid === c.uid) el.classList.add('sel');
+      if (sel && (sel.kind === 'field' || sel.kind === 'swap') && sel.uid === c.uid) el.classList.add('sel');
       el.onclick = () => {
         if (longPressed(el)) return;
         hidePreview();
@@ -702,7 +706,7 @@
       if (atk) {
         el.classList.add('target');
         const A = V.players[me].atk.find((x) => x.uid === sel.uid);
-        const av = C[A.id].atk, dv = C[c.id].def;
+        const av = G.effAtk(V, me, A), dv = C[c.id].def;
         el.classList.add(av > dv ? 'good-target' : av < dv ? 'bad-target' : 'x');
         el.title = `Atacar: ⚔️${av} contra 🛡️${dv} — ${av > dv ? 'você vence' : av === dv ? 'os dois caem' : 'seu atacante cai e o alvo fica Atordoado'}`;
       }
@@ -829,6 +833,7 @@
       const c = G.locate(V, sel.uid);
       const d = c ? C[c.card.id] : null;
       const acts = L.filter((a) => a.uid === sel.uid);
+      const swaps = L.filter((a) => a.t === 'swap' && (a.a === sel.uid || a.b === sel.uid));
       const cyc = sel.kind === 'hand' ? acts.find((x) => x.t === 'cycle') : null;
       const cycBtn = () => { if (cyc) btns.push(btn(`♻️ <span class="lg">Descartar e comprar </span><small>⚡${G.RULES.cycleCost}</small>`, '', () => { sel = null; ctl.send(cyc); })); };
       if (d && sel.kind === 'hand' && d.type === 'sup') {
@@ -845,8 +850,8 @@
         const hasAtk = acts.some((x) => x.t === 'attack');
         const hasMove = acts.some((x) => x.t === 'move');
         const parts = [];
-        if (hasAtk) parts.push('clique num alvo 🎯' + (acts.some((x) => x.target === 'life') ? ' ou no retrato do adversário' : ''));
-        if (hasMove) parts.push('ou numa zona verde para mover');
+        if (hasAtk) parts.push('clique num alvo 🎯' + (acts.some((x) => x.target === 'life') ? ' ou no retrato do adversário' : (G.heroBlocked(V, c.card) && !V.players[1 - me].def.length ? ' (no turno em que entra, o Ligeiro só ataca Personagens)' : '')));
+        if (hasMove) parts.push('ou num espaço verde para mover');
         hint = `<b>${esc(d.name)}</b>: ${parts.join(' ') || ''}`;
         if (act) btns.push(btn(`✨ <span class="lg">Usar </span>habilidade (⚡${G.actCost(V, me, c.card)})`, 'gold', () => { sel = null; ctl.send(act); }));
         else if (d.activatable) {
@@ -854,11 +859,12 @@
           hint = `<b>${esc(d.name)}</b>: habilidade indisponível — ${why}`;
           btns.push(btn(`✨ <span class="lg">Usar </span>habilidade`, '', () => { UI.toast(`Não dá para usar agora: ${why}`, 'err', 3200); G.sfx('error'); }));
         }
-        if (perm) btns.push(btn('🚪 Usar Porta dos Fundos', 'gold', () => { sel = null; ctl.send(perm); }));
+        if (swaps.length) btns.push(btn(`🔁 <span class="lg">Trocar de lugar </span>(⚡${G.RULES.swapCost})`, '', () => { sel = { kind: 'swap', uid: sel.uid }; render(); }));
+        if (sel.kind === 'swap') hint = `<b>${esc(d.name)}</b>: escolha o Personagem (brilhando) para trocar de lugar`;
       }
       btns.push(btn('✖ Cancelar', '', () => { sel = null; render(); }));
     } else {
-      const canMore = L.some((a) => a.t !== 'endTurn' && a.t !== 'buySup' && a.t !== 'cycle');
+      const canMore = L.some((a) => a.t !== 'endTurn' && a.t !== 'buySup' && a.t !== 'cycle' && a.t !== 'swap');
       const canAtk = L.some((a) => a.t === 'attack');
       hint = canAtk ? 'Jogue cartas com a sua energia ⚡ e ataque com os Personagens brilhando' : 'Jogue cartas com a sua energia ⚡ (Personagens novos atacam no próximo turno)';
       const buy = L.find((a) => a.t === 'buySup');
@@ -1197,15 +1203,16 @@
   UI.rules = function () {
     const m = UI.modal(`<h3>Regras rápidas</h3><div class="rules-doc">
       <h4>Objetivo</h4><p>Reduza a vida do adversário de <b>25 para 0</b>. (Nas cartas, 1 ❤️ = 5 pontos de vida: "recupere ❤️1" cura 5.)</p>
-      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 2 Suportes na mão (ninguém escolhe nem devolve cartas), todos baratos: custo até ⚡3. A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de cada jogador só existe ⚡1</b> e nenhum efeito dá energia extra. Todo mundo começa com pelo menos 1 Personagem de custo ⚡1. <b>Só recebemos cartas que dá para jogar:</b> cada carta comprada é a primeira do baralho cujo custo cabe na sua energia daquele turno (as caras só chegam quando você já tem energia para elas).</p>
+      <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 2 Suportes na mão (ninguém escolhe nem devolve cartas), todos baratos: custo até ⚡3. A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de cada jogador só existe ⚡1</b> e nenhum efeito dá energia extra. Todo mundo começa com <b>pelo menos 2 Personagens de custo ⚡1</b> para jogar no primeiro turno. <b>As cartas vêm embaralhadas, mas só chegam cartas de até ⚡2 acima da sua energia:</b> cada carta comprada é a primeira do baralho cujo custo é no máximo a sua energia do turno + 2 (na mão inicial: até ⚡3). As caras só chegam quando você já está perto de poder jogá-las.</p>
       <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡10</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 10.</p>
       <h4>Campo</h4><table><tr><th>Zona</th><th>Limite</th><th>Função</th></tr>
-      <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram).</td></tr>
+      <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram, exceto Ligeiros).</td></tr>
       <tr><td>🛡️ Defesa</td><td>3</td><td>Protegem a sua vida: enquanto existir um Defensor, o herói não pode ser atacado.</td></tr>
       <tr><td>🤝 Apoio</td><td>2</td><td>Não atacam nem defendem. Só podem ser atacados quando o adversário não tem Defensores. Ativam efeitos 🤝.</td></tr>
       <tr><td>🛠️ Suportes</td><td>2</td><td>Suportes Permanentes ficam aqui.</td></tr></table>
+      <h4>Posição: espaços fixos</h4><p>Cada zona tem espaços fixos (esquerda, meio e direita). Ao jogar um Personagem, toque no <b>espaço</b> onde ele vai ficar; ele não muda de lugar sozinho. Vários efeitos usam a posição: o <b>vizinho</b> (espaço ao lado, na mesma zona) e a <b>frente</b> (um Defensor está "atrás" do atacante do mesmo espaço). <b>Mover</b> (⚡1) leva um Personagem a outro espaço livre, e <b>Trocar de lugar</b> (⚡2, uma vez por turno) troca dois Personagens seus de lugar. Quem foi movido ou trocado não ataca naquele turno.</p>
       <h4>Turno</h4><p><b>COMPRE</b> 1 Personagem (se tiver menos de 7 cartas) → faça o que quiser com sua energia, em qualquer ordem: <b>jogar Personagens e Suportes</b>, <b>comprar 1 Suporte</b> (⚡1, uma vez por turno), <b>mover</b> um Personagem (⚡1, uma vez por Personagem), usar <b>habilidades Ativáveis</b> (uma vez por turno cada), e <b>atacar</b> com cada Personagem pronto → <b>ENCERRE</b> o turno. A cada 2 turnos seus você também compra 1 Suporte automaticamente.</p>
-      <h4>Combate</h4><p>O atacante causa o próprio ⚔️ de dano. Um Personagem atacado <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo. O dano <b>fica na carta para sempre</b> até que um efeito de <b>cura</b> o remova, e a carta cai quando o dano chega à sua 🛡️. Cartas <b>Ligeiro</b> podem atacar assim que entram, mas só atacam Personagens. Dá para combinar vários ataques para derrubar um alvo.</p>
+      <h4>Combate</h4><p>O atacante causa o próprio ⚔️ de dano. Um Personagem atacado <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo. O dano <b>fica na carta para sempre</b> até que um efeito de <b>cura</b> o remova, e a carta cai quando o dano chega à sua 🛡️. Cartas <b>Ligeiro</b> (a partir de ⚡2) podem atacar assim que entram, mas no turno em que entram só atacam Personagens (nos turnos seguintes atacam o herói normalmente). <b>Resistente N</b>: sofre N de dano a menos em cada ataque (mínimo 1). <b>Executor</b>: +2 de ataque contra Personagens que já têm dano. Alguns efeitos Ao Entrar causam dano direto a Personagens inimigos. Dá para combinar vários ataques para derrubar um alvo.</p>
       <p>Contra um herói com Defensores, ataque os Defensores. <b>Desafio</b>: atacar um Personagem do Ataque inimigo. Sem Defensores, <b>todos os seus atacantes podem atacar o herói</b> (cada um tirando vida igual ao seu ⚔️, sem contra-ataque) <b>ou os Personagens em 🤝 Apoio</b>.</p>
       <h4>Descartar e comprar</h4><p>Uma vez por turno, pague <b>⚡1</b> para descartar 1 carta da mão e comprar 1 do mesmo tipo (Personagem por Personagem, Suporte por Suporte). Serve para trocar uma carta que não dá para jogar.</p>
       <h4>Perks (Suportes Permanentes)</h4><p>Perks ocupam uma das 2 vagas 🛠️, têm efeito passivo e <b>duram 3 turnos seus</b> (o ⏳ na carta mostra quantos faltam): <b>Torcida Organizada</b> (+1 de dano em todos os ataques), <b>Boleto Vencido</b> (+2 de dano no herói), <b>Fofoca do Churrasco</b> (compra 1 quando um Personagem seu cai), <b>Fiscal da Cerveja</b> (adversário perde ❤️1 quando seu Personagem derrota outro), <b>Soneca Estratégica</b> (recupera ❤️2 se ninguém atacou), <b>Bill</b> (compra extra), <b>Sofá</b> (Defensores sofrem 2 de dano a menos), <b>Cristal</b> (cada Personagem seu cura 2 de dano no início do seu turno) e <b>Jardim</b> (Personagens em Apoio ou Defesa curam 3 de dano no fim do seu turno).</p>

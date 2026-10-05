@@ -800,3 +800,6 @@ body.online .online-only { display: grid !important; }
 .card.shielded { outline: 3px solid #5aaaff; outline-offset: -1px; animation: shieldglow 1.6s ease-in-out infinite; }
 @keyframes buffglow { 50% { box-shadow: 0 0 18px 4px rgba(76, 255, 138, .85); } }
 @keyframes shieldglow { 50% { box-shadow: 0 0 18px 4px rgba(90, 170, 255, .85); } }
+
+.card.swap-target { outline: 3px dashed #ffd84a; outline-offset: -2px; animation: buffglow 1s ease-in-out infinite; cursor: pointer; }
+.slot[data-slot]::before { content: ''; }
