@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=85">
+  <link rel="stylesheet" href="css/style.css?v=88">
 </head>
 <body>
   <canvas id="sparks"></canvas>
@@ -35,7 +35,7 @@
           <button class="btn gold big" data-go="solo"><i>🤖</i><b>Contra o Computador</b><small>Fácil, Médio ou Difícil · offline</small></button>
           <button class="btn gold big" data-go="online"><i>🌐</i><b>Jogar Online</b><small>Crie uma sala e mande o código</small></button>
           <button class="btn big" data-go="tutorial"><i>📖</i><b>Tutorial</b><small>Aprenda em 3 minutos</small></button>
-          <button class="btn big" data-go="collection"><i>🃏</i><b>Coleção</b><small>Todas as 119 cartas</small></button>
+          <button class="btn big" data-go="collection"><i>🃏</i><b>Coleção</b><small>Todas as 117 cartas</small></button>
         </div>
         <div class="menu-foot">
           <button class="link" id="btn-rules">📜 Regras completas</button>
@@ -146,7 +146,7 @@
         <div class="midline" id="midline"></div>
         <div id="event-big"></div>
         <div class="field me" id="field-0"></div>
-        <div class="m-bottom"><div class="plate-slot compact" id="mplate-0"></div><button class="icon-btn" id="btn-log" title="Histórico">📜</button><button class="icon-btn" id="btn-music-m" title="Música">🎵</button><button class="icon-btn" id="btn-meme-m" title="Sons de meme">🎭</button><button class="icon-btn" id="btn-emote" title="Reações">😄</button></div>
+        <div class="m-bottom"><div class="plate-slot compact" id="mplate-0"></div><button class="icon-btn" id="btn-log" title="Histórico">📜</button><button class="icon-btn" id="btn-music-m" title="Música">🎵</button><button class="icon-btn" id="btn-meme-m" title="Sons de meme">🎭</button><button class="icon-btn" id="btn-emote" title="Reações">😄</button><button class="icon-btn online-only" id="btn-chat-m" title="Chat">💬<i class="chat-dot" hidden></i></button></div>
         <div class="hand" id="hand"></div>
       </div>
       <div class="g-corner">
@@ -155,6 +155,7 @@
         <button class="icon-btn online-only voice-mic" title="Ligar microfone">🎤</button><button class="icon-btn online-only voice-hear" title="Ouvir o outro jogador">🔊</button>
         <button class="icon-btn" id="btn-menu2" title="Menu">☰</button>
         <button class="icon-btn" id="btn-emote2" title="Reações">😄</button>
+        <button class="icon-btn online-only" id="btn-chat" title="Chat">💬<i class="chat-dot" hidden></i></button>
       </div>
     </section>
   </main>
@@ -166,16 +167,17 @@
   <div id="preview" class="preview"></div>
 
   <script src="js/vendor/peerjs.min.js"></script>
-  <script src="js/cards.js?v=85"></script>
-  <script src="js/engine.js?v=85"></script>
-  <script src="js/ai.js?v=85"></script>
-  <script src="js/sfx.js?v=85"></script>
-  <script src="js/music.js?v=85"></script>
-  <script src="js/memes.js?v=85"></script>
-  <script src="js/voice.js?v=85"></script>
-  <script src="js/ui.js?v=85"></script>
-  <script src="js/net.js?v=85"></script>
-  <script src="js/tutorial.js?v=85"></script>
-  <script src="js/main.js?v=85"></script>
+  <script src="js/cards.js?v=88"></script>
+  <script src="js/engine.js?v=88"></script>
+  <script src="js/ai.js?v=88"></script>
+  <script src="js/audioout.js?v=88"></script>
+  <script src="js/sfx.js?v=88"></script>
+  <script src="js/music.js?v=88"></script>
+  <script src="js/memes.js?v=88"></script>
+  <script src="js/voice.js?v=88"></script>
+  <script src="js/ui.js?v=88"></script>
+  <script src="js/net.js?v=88"></script>
+  <script src="js/tutorial.js?v=88"></script>
+  <script src="js/main.js?v=88"></script>
 </body>
 </html>

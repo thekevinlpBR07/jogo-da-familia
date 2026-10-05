@@ -361,12 +361,12 @@
   const SYNTH = { seq: 'Sintetizada: sequência', epic: 'Sintetizada: ' + TRACKS.epic.name, funny1: 'Sintetizada: ' + TRACKS.funny1.name, funny2: 'Sintetizada: ' + TRACKS.funny2.name };
   let EXTRAS = []; // músicas extras listadas em assets/music/extras/extras.json
   const extraTrack = (i) => { const e = EXTRAS[+i]; return e ? { name: e.name, emoji: e.emoji || '🎵', url: abs('assets/music/extras/' + e.file) } : null; };
-  const validMode = (m) => m === 'off' || m.startsWith('extra:') || m === 'temas' || FILES[m] || SYNTH[m] || (m.startsWith('tema:') && themeTrack(m.slice(5)));
+  const validMode = (m) => m === 'off' || m === 'todas' || m.startsWith('extra:') || m === 'temas' || FILES[m] || SYNTH[m] || (m.startsWith('tema:') && themeTrack(m.slice(5)));
   const saved = store('music2', 'royal');
 
   const M = (G.Music = {
     mode: validMode(saved) ? saved : 'royal',
-    vol: Math.min(1, Math.max(0, parseFloat(store('music-vol2', '0.18')) || 0.18)),
+    vol: Math.min(1, Math.max(0, parseFloat(store('music-vol3', '0.4')) || 0.4)), // posição do controle (0..1); o ganho real usa uma curva
     entrance: store('music-entrance', 'on') !== 'off', // trecho do tema quando uma Lendária entra em campo
     tracks: TRACKS,
     onTrack: null,
@@ -377,7 +377,8 @@
   let paused = false, hist = [];
   let audio = null, audioFade = null, lastTheme = null, stingAudio = null, stingT = null, ducked = false;
   const synthMode = () => !!SYNTH[M.mode];
-  const fileGain = () => M.vol * 0.9 * (ducked ? 0.2 : 1);
+  const curve = (v) => v * v;
+  const fileGain = () => curve(M.vol) * 0.9 * (ducked ? 0.2 : 1);
 
   // ---------- arquivos
   function fadeAudio(a, to, ms, done) {
@@ -409,12 +410,21 @@
     lastTheme = t.key;
     playFile({ name: 'Tema do ' + t.name, emoji: t.emoji, url: t.url }, false, () => { if (playing && M.mode === 'temas') nextTheme(); });
   }
+  // quando uma faixa acaba, começa outra, sorteada entre todas (menos a que acabou de tocar)
+  let curId = null;
+  function shuffleNext() {
+    const ids = cycleIds().filter((i) => i !== curId);
+    curId = ids[Math.floor(Math.random() * ids.length)];
+    const t = trackOf(curId);
+    lastTheme = null;
+    if (t) playFile(t, false, () => { if (playing && !Sy.on) { if (M.mode !== 'temas') M.mode = 'todas'; shuffleNext(); } });
+  }
   function startFileMode() {
     if (M.mode === 'temas') return nextTheme();
-    if (FILES[M.mode]) return playFile(FILES[M.mode], true);
-    if (M.mode.startsWith('extra:')) { const x = extraTrack(M.mode.slice(6)); return x ? playFile(x, true) : undefined; }
-    const tr = themeTrack(M.mode.slice(5));
-    if (tr) playFile(tr, true);
+    if (M.mode === 'todas') return shuffleNext();
+    curId = M.mode;
+    const tr = trackOf(M.mode);
+    if (tr) playFile(tr, false, () => { if (playing && !Sy.on) { M.mode = 'todas'; state(); shuffleNext(); } });
   }
 
   // ---------- sintetizada (WebAudio)
@@ -464,7 +474,7 @@
     if (!master || master.context !== ctx) master = chain(ctx);
     master.gain.cancelScheduledValues(ctx.currentTime);
     master.gain.setValueAtTime(0.0001, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(M.vol * 0.75 * (ducked ? 0.2 : 1), ctx.currentTime + 1.8);
+    master.gain.linearRampToValueAtTime(curve(M.vol) * 0.75 * (ducked ? 0.2 : 1), ctx.currentTime + 1.8);
     beginSynth(M.mode === 'seq' ? ORDER[0] : M.mode);
     clearInterval(timer);
     timer = setInterval(tick, 40);
@@ -481,7 +491,7 @@
     else if (id.startsWith('tema:')) t = themeTrack(id.slice(5));
     return t ? Object.assign({ id }, t) : null;
   };
-  const isSyncable = (m) => m === 'temas' || !!FILES[m] || (m.startsWith('extra:') && !!extraTrack(m.slice(6))) || (m.startsWith('tema:') && !!themeTrack(m.slice(5)));
+  const isSyncable = (m) => m === 'temas' || m === 'todas' || !!FILES[m] || (m.startsWith('extra:') && !!extraTrack(m.slice(6))) || (m.startsWith('tema:') && !!themeTrack(m.slice(5)));
   const pub = () => { if (Sy.send && Sy.S) Sy.send({ type: 'music', S: Sy.S }); };
   function syncTarget() {
     const S = Sy.S;
@@ -518,10 +528,10 @@
       if (audio) { const old = audio; fadeAudio(old, 0, 500, () => { old.pause(); old.src = ''; }); }
       const a = new Audio();
       a.__id = S.track;
-      a.loop = S.mode !== 'temas';
+      a.loop = false;
       a.volume = 0;
       a.muted = Sy.localMute;
-      a.onended = () => { if (Sy.role === 'host' && Sy.S && Sy.S.mode === 'temas' && playing && audio === a) hostPick('temas'); };
+      a.onended = () => { if (Sy.role === 'host' && Sy.S && playing && audio === a && !Sy.S.paused) hostPick(Sy.S.mode === 'temas' ? 'temas' : 'todas'); };
       audio = a;
       a.addEventListener('loadedmetadata', () => {
         const t = syncTarget();
@@ -550,9 +560,14 @@
     const list = (G.THEMES || []).filter((t) => t.key !== cur);
     return 'tema:' + list[Math.floor(Math.random() * list.length)].key;
   }
+  function randomAnyId() {
+    const cur = Sy.S && Sy.S.track;
+    const ids = cycleIds().filter((i) => i !== cur);
+    return ids[Math.floor(Math.random() * ids.length)];
+  }
   function hostPick(mode, forceTrack) {
     let track = forceTrack;
-    if (!track) track = mode === 'temas' ? randomThemeId() : mode;
+    if (!track) track = mode === 'temas' ? randomThemeId() : mode === 'todas' ? randomAnyId() : mode;
     if (mode === 'temas' && !forceTrack && Sy.S && Sy.S.track && Sy.S.track.startsWith('tema:')) Sy.hist.push(Sy.S.track);
     Sy.S = { mode, track, started: Date.now(), paused: false, pos: 0, seq: (Sy.S ? Sy.S.seq : 0) + 1 };
     applyS();
@@ -660,7 +675,7 @@
   };
   M.setVol = function (v) {
     M.vol = Math.min(1, Math.max(0, v));
-    save('music-vol2', String(M.vol));
+    save('music-vol3', String(M.vol));
     applyGain();
   };
   M.setEntrance = function (on) { M.entrance = !!on; save('music-entrance', on ? 'on' : 'off'); };
@@ -691,6 +706,7 @@
   function cycleIds() { return ['royal', 'polka'].concat(EXTRAS.map((_, i) => 'extra:' + i), (G.THEMES || []).map((t) => 'tema:' + t.key)); }
   M.skip = function (dir) {
     if (Sy.on) { Sy.localMute = false; if (audio) audio.muted = false; if (!playing) return M.start(); return syncCmd('skip', dir); }
+    if (M.mode === 'todas' && playing) { shuffleNext(); paused = false; return; }
     if (M.mode === 'temas' && playing) {
       if (dir < 0 && hist.length) { const key = hist.pop(); lastTheme = null; const t = themeTrack(key); lastTheme = key; if (t) playFile(t, false, () => { if (playing && M.mode === 'temas') nextTheme(); }); }
       else nextTheme();
@@ -708,7 +724,7 @@
   };
   function applyGain() {
     if (audio) audio.volume = fileGain();
-    if (master && ctx && playing && synthMode()) master.gain.setTargetAtTime(M.vol * 0.75 * (ducked ? 0.2 : 1), ctx.currentTime, 0.1);
+    if (master && ctx && playing && synthMode()) master.gain.setTargetAtTime(curve(M.vol) * 0.75 * (ducked ? 0.2 : 1), ctx.currentTime, 0.1);
   }
   // a música abaixa quando algo mais importante toca/fala (meme, tema de Lendária, conversa por voz); cada um com sua "chave"
   const duckKeys = new Set();
@@ -721,6 +737,7 @@
     const out = [
       { id: 'royal', label: '⚔️ The Royal Gambit', hint: 'música principal', group: 'Músicas do jogo' },
       { id: 'polka', label: '🥩 Churrasco Polka Panic', hint: 'a engraçada', group: 'Músicas do jogo' },
+      { id: 'todas', label: '🔀 Todas as músicas (aleatório)', hint: 'uma atrás da outra', group: 'Músicas do jogo' },
       { id: 'temas', label: '🎲 Temas da família (aleatório)', hint: 'um tema atrás do outro', group: 'Temas dos personagens' },
     ];
     (G.THEMES || []).forEach((t) => out.push({ id: 'tema:' + t.key, label: `${t.emoji} Tema do ${t.name}`, group: 'Temas dos personagens' }));
@@ -748,7 +765,7 @@
     if (!th) return;
     M.stopSting();
     const a = new Audio(th.url);
-    a.volume = Math.min(1, M.vol * 1.0);
+    a.volume = Math.min(1, curve(M.vol));
     a.play().catch(() => {});
     stingAudio = a;
     duck(true, 'sting');
@@ -762,7 +779,7 @@
     if (M.isMuted()) return false;
     M.stop();
     const a = new Audio(abs('assets/music/temas/' + kind + '.m4a'));
-    a.volume = Math.min(1, M.vol * 1.0);
+    a.volume = Math.min(1, curve(M.vol));
     a.play().catch(() => {});
     return true;
   };
@@ -772,7 +789,7 @@
     const sr = sampleRate || 22050;
     const oc = new OfflineAudioContext(2, Math.ceil(sr * seconds), sr);
     const out = chain(oc);
-    out.gain.value = 0.75 * 0.6;
+    out.gain.value = 0.75 * 0.6 * curve(M.vol) / Math.max(0.0001, M.vol);
     const tr = TRACKS[id];
     const sd = 60 / tr.bpm / 4;
     const n = Math.min(Math.floor(seconds / sd), tr.bars * 16 * 4);

@@ -47,7 +47,7 @@
         switch (pd.purpose) {
           case 'peekBottom': { const d = C[opts[0].id]; return d.type === 'char' ? d.cost > pl.energy + 3 || d.atk + d.def < 9 : d.cost > pl.energy + 2; }
           case 'naovaleu': return C[opts[0].id].cost >= 4;
-          case 'bagunca': { const ch = pl.hand.filter((c) => D(c).type === 'char'); return ch.length > 0 && ch.reduce((t, c) => t + val(c), 0) / ch.length < 8; }
+          case 'peCancel': return pd.dmg >= 5 || pl.life - pd.dmg <= 10;
           case 'selfToDef': return s.players[p].def.length < 2;
           default: return true;
         }
@@ -71,7 +71,8 @@
         let pick;
         switch (pd.purpose) {
           case 'mulligan': pick = opts.slice().sort((a, b) => C[b.id].cost - C[a.id].cost)[0]; break;
-          case 'pickToHand': case 'protect': case 'unstun': case 'rescue': case 'taxiIn': case 'g220': case 'recoverSup': pick = byVal(1)[0]; break;
+          case 'pickToHand': case 'protect': case 'unstun': case 'rescue': case 'taxiIn': case 'g220': case 'recoverSup': case 'tutor': case 'espelho': pick = byVal(1)[0]; break;
+          case 'bolaTarget': pick = opts.slice().sort((a, b) => C[b.id].atk - C[a.id].atk)[0]; break;
           case 'cureHaste': case 'cureProtect': case 'cureOne': { // cura quem mais perdeu vida (ataque forte desempata)
             const dm = (o) => { const L = G.locate(s, o.v); return L ? (L.card.dmg || 0) * 2 + C[L.card.id].atk * 0.1 : 0; };
             pick = opts.slice().sort((x, y) => dm(y) - dm(x))[0]; break;
@@ -90,8 +91,16 @@
           }
           case 'moveToDef': if (need === 0 && s.players[p].def.length >= 2) return []; pick = opts.slice().sort((a, b) => C[b.id].def - C[a.id].def)[0]; break;
           case 'moveToAtk': if (need === 0 && s.players[p].atk.length >= 2) return []; pick = opts.slice().sort((a, b) => C[b.id].atk - C[a.id].atk)[0]; break;
-          case 'viajar': { const w = byVal(-1)[0]; if (need === 0 && (!w || C[w.id].cost <= pl.energy + 2)) return []; pick = w; break; }
-          case 'van': case 'porta': if (need === 0) return []; pick = opts[0]; break;
+          case 'porta': { // devolve o mais ferido (só vale a pena se houver dano)
+            const dm = (o) => { const L = G.locate(s, o.v); return L ? (L.card.dmg || 0) : 0; };
+            pick = opts.slice().sort((x, y) => dm(y) - dm(x))[0];
+            if (pick && dm(pick) === 0 && need === 0) return [];
+            break;
+          }
+          case 'van': { // dá Ligeiro para quem acabou de entrar
+            const fresh = opts.filter((o) => { const L = G.locate(s, o.v); return L && L.card.enteredT === s.turn; }).slice(0, 2);
+            return fresh.map((o) => o.v);
+          }
           default: pick = need === 0 ? null : opts[0];
         }
         if (!pick) return need === 0 ? [] : [opts[0].v];
@@ -175,7 +184,7 @@
   }
   function mediumChoice(s, pd) {
     const quickKinds = ['info', 'order'];
-    const quickPurposes = ['mulligan', 'pickToHand', 'naovaleu', 'peekBottom', 'bagunca'];
+    const quickPurposes = ['mulligan', 'pickToHand', 'naovaleu', 'peekBottom'];
     if (quickKinds.includes(pd.kind) || quickPurposes.includes(pd.purpose)) return quick(s, pd);
     let cands = [];
     if (pd.kind === 'confirm') cands = [true, false];
@@ -347,7 +356,7 @@
   }
   function hardChoice(s, pd) {
     const quickKinds = ['info', 'order'];
-    const quickPurposes = ['mulligan', 'pickToHand', 'naovaleu', 'peekBottom', 'bagunca'];
+    const quickPurposes = ['mulligan', 'pickToHand', 'naovaleu', 'peekBottom'];
     if (quickKinds.includes(pd.kind) || quickPurposes.includes(pd.purpose)) return quick(s, pd);
     let cands = [];
     if (pd.kind === 'confirm') cands = [true, false];

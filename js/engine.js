@@ -105,6 +105,14 @@
   }
   function loseLife(s, p, n, why) {
     const pl = s.players[p];
+    const casa = hasPerm(s, p, 'casa');
+    if (casa && n > 0 && pl.life - n <= 0) {
+      discardPerm(s, p, casa);
+      pl.life = G.RULES.heartPts;
+      fx(s, { t: 'damage', p, n });
+      log(s, `🏠 Casa da Vó — aqui ninguém morre! ${pn(s, p)} fica com ❤️1.`, 'good');
+      return;
+    }
     pl.life = Math.max(0, pl.life - n);
     fx(s, { t: 'damage', p, n });
     log(s, `💔 ${pn(s, p)} perdeu ${n} de vida${why ? ' (' + why + ')' : ''}.`, 'bad');
@@ -152,7 +160,6 @@
     return true;
   }
   function refillSup(s) {
-    if (evKey(s) === 'treta') return;
     const pool = [];
     s.players.forEach((pl) => {
       pl.discard = pl.discard.filter((c) => { if (D(c).type === 'sup') { pool.push(clean(c)); return false; } return true; });
@@ -177,7 +184,7 @@
   function sendDefeated(s, L, o) {
     const c = L.card, p = L.p;
     if (o.combat && L.z === 'atk') {
-      const ar = hasPerm(s, p, 'arena');
+      const ar = s.players[p].hand.length < 7 && hasPerm(s, p, 'arena');
       if (ar) {
         discardPerm(s, p, ar);
         s.players[p].hand.push(clean(c));
@@ -247,7 +254,7 @@
   const other = (z) => (z === 'atk' ? 'def' : 'atk');
 
   // ---------------------------------------------------------------- custos
-  function charCost(s, p, c, red) { return Math.max(1, D(c).cost - (red || 0) - (s.players[p].nextRedT === s.turn ? 1 : 0)); }
+  function charCost(s, p, c, red) { const pl = s.players[p]; return Math.max(1, D(c).cost - (red || 0) - (pl.nextRedT === s.turn ? 1 : 0) - (pl.discT === s.turn && pl.discUid === c.uid ? 2 : 0)); }
   function supCost(s, p, c) {
     const pl = s.players[p];
     const red = Math.max(evKey(s) === 'praia' ? 1 : 0, pl.nextSupRedT === s.turn ? 1 : 0, D(c).kind === 'imm' && fieldChars(pl).some((x) => D(x).fx === 'jonesPets') ? 1 : 0); // descontos não se acumulam
@@ -419,10 +426,9 @@
     const order = [s.active, opp(s.active)];
     if (f === 'flamengo') order.forEach((p) => { if (s.players[p].hand.some((c) => D(c).flamengo) && drawChar(s, p)) log(s, `${pn(s, p)} tem um rubro-negro na mão e comprou 1 Personagem.`, 'good'); });
     if (f === 'churrasco') order.forEach((p) => drawChar(s, p));
-    if (f === 'presente') order.forEach((p) => drawSup(s, p));
     if (f === 'billSolto') order.forEach((p) => {
       const pl = s.players[p];
-      if (pl.def.length >= 2) {
+      if (pl.def.length >= 2 && pl.hand.length < 7) {
         const low = pl.def.slice().sort((a, b) => D(a).def - D(b).def)[0];
         removeFromField(s, low.uid);
         pl.hand.push(clean(low));
@@ -430,31 +436,20 @@
         log(s, `🐶 Bill Solto! ${nm(low)} voltou para a mão de ${pn(s, p)}.`);
       }
     });
-    if (f === 'viajar') push(s, ...order.map((p) => ({ k: 'viajar', p })));
-    if (f === 'bagunca') push(s, ...order.map((p) => ({ k: 'bagunca', p })));
     if (f === 'bronca') push(s, ...order.map((p) => ({ k: 'bronca', p })));
-  };
-  STEP.viajar = (s, st, v) => {
-    const pl = s.players[st.p];
-    const opts = pl.hand.filter((c) => D(c).type === 'char');
-    const c = pickOne(s, st, v, { player: st.p, options: opts, optional: true, title: 'Todo Mundo Vai Viajar', text: 'Você pode colocar 1 Personagem da mão no fundo do baralho e comprar 1 Personagem.', purpose: 'viajar' });
-    if (!c) return;
-    pl.hand.splice(pl.hand.indexOf(c), 1);
-    s.charDeck.push(c);
-    drawChar(s, st.p);
-    log(s, `${pn(s, st.p)} trocou 1 Personagem da mão.`);
-  };
-  STEP.bagunca = (s, st, v) => {
-    const pl = s.players[st.p];
-    const chars = pl.hand.filter((c) => D(c).type === 'char');
-    if (!chars.length) return;
-    if (v === undefined) return ask(s, st, { player: st.p, kind: 'confirm', title: 'Virou Bagunça!', text: `Embaralhar seus ${chars.length} Personagens da mão no baralho e comprar a mesma quantidade?`, options: [], purpose: 'bagunca' });
-    if (!v) return;
-    pl.hand = pl.hand.filter((c) => D(c).type !== 'char');
-    s.charDeck.push(...chars);
-    shuffle(s, s.charDeck);
-    for (let i = 0; i < chars.length; i++) drawChar(s, st.p);
-    log(s, `${pn(s, st.p)} embaralhou a mão e comprou ${chars.length} Personagens novos.`);
+    if (f === 'granizo') {
+      order.forEach((p) => s.players[p].atk.slice().forEach((c) => {
+        c.dmg = (c.dmg || 0) + 2;
+        fx(s, { t: 'hit', uid: c.uid, n: 2 });
+        log(s, `🌩️ Granizo na Laje: ${nm(c)} sofreu 2 de dano.`, 'warn');
+        if (c.dmg >= D(c).def) defeat(s, c.uid, {});
+      }));
+    }
+    if (f === 'filaChurrasco') {
+      const n0 = fieldChars(s.players[0]).length, n1 = fieldChars(s.players[1]).length;
+      if (n0 === n1) log(s, '🍖 Fila do Churrasco: empate, ninguém compra.');
+      else { const p = n0 < n1 ? 0 : 1; if (drawChar(s, p)) log(s, `🍖 Fila do Churrasco: ${pn(s, p)} tem menos Personagens em campo e comprou 1 Personagem.`, 'good'); }
+    }
   };
   STEP.bronca = (s, st, v) => {
     const o = opp(st.p);
@@ -482,12 +477,12 @@
       loseLife(s, p, G.RULES.fatigueDmg, 'Cansaço');
       if (s.winner != null) return;
     }
-    const casa = hasPerm(s, p, 'casa');
-    if (casa && pl.life <= 2 * G.RULES.heartPts) { discardPerm(s, p, casa); log(s, '🏠 Casa da Vó — aqui ninguém morre!'); heal(s, p, 3); }
     if (s.turn === 1) log(s, `${pn(s, p)} é o primeiro jogador e não compra no primeiro turno.`);
     else drawChar(s, p, true);
     if (hasPerm(s, p, 'bill') && s.turn > 1) { if (drawChar(s, p, true)) log(s, '🐕 Bill, o Fiscal do Portão: compra extra.', 'good'); }
-    if (hasPerm(s, p, 'cristal')) { log(s, '🔮 Cristal do Gato de Luz: você recupera vida.', 'good'); heal(s, p, 1); }
+    if (hasPerm(s, p, 'cristal')) {
+      fieldChars(pl).forEach((c) => { if (c.dmg > 0) { c.dmg = Math.max(0, c.dmg - 2); log(s, `🔮 Cristal do Gato de Luz: ${nm(c)} curou 2 de dano.`, 'good'); } });
+    }
     pl.turns = (pl.turns || 0) + 1;
     fieldChars(pl).forEach((c) => { // regeneração de algumas cartas
       if (D(c).fx === 'regen3' && c.dmg > 0) { c.dmg = Math.max(0, c.dmg - 3); log(s, `${nm(c)} curou 3 de dano.`, 'good'); }
@@ -513,7 +508,7 @@
       const e = evKey(s);
       if (e === 'caiuPix') { gainE(s, p, 1); log(s, 'Caiu o PIX: ⚡+1 extra neste turno.', 'good'); }
       if (e === 'naoCaiuPix') { pl.energy = Math.max(1, pl.energy - 1); log(s, 'O PIX Não Caiu: ⚡-1 neste turno.', 'warn'); }
-      if (e === 'noite') fieldChars(pl).forEach((c) => unstun(s, c));
+      if (e === 'noite') fieldChars(pl).forEach((c) => { if (c.dmg > 0) { c.dmg = Math.max(0, c.dmg - 2); log(s, `🌙 Noite Tranquila: ${nm(c)} curou 2 de dano.`, 'good'); } });
     }
     if (G.RULES.supDrawEvery && pl.turns > 1 && pl.turns % G.RULES.supDrawEvery === 0) {
       if (drawSup(s, p)) log(s, `${pn(s, p)} comprou 1 Suporte (compra automática).`, 'good');
@@ -565,7 +560,8 @@
     if (pl.nextRedT === s.turn) pl.nextRedT = 0;
     const inst = { uid: c.uid, id: c.id, enteredT: s.turn };
     pl[zone].push(inst);
-    if (evKey(s) === 'sono') { stun(s, inst, p); }
+    if (evKey(s) === 'sono' && D(c).fx !== 'ligeiro') { stun(s, inst, p); }
+    if (o.lig) inst.ligT = s.turn;
     s.lastPlayed = { uid: c.uid, id: c.id, p };
     fx(s, { t: 'play', uid: c.uid, p, zone });
     log(s, `${pn(s, p)} jogou ${nm(c)} em ${ZI[zone]} ${ZN[zone]} (⚡${cost}).`);
@@ -573,7 +569,6 @@
     const steps = [];
     if (AE.has(D(c).fx)) steps.push({ k: 'aeCheck', p, uid: c.uid });
     if (pl.verT !== s.turn && pl.apoio.some((x) => x.uid !== c.uid && D(x).fx === 'vereador')) steps.push({ k: 'vereador', p });
-    if (zone === 'atk' && hasPerm(s, p, 'bola')) steps.push({ k: 'bola', p, uid: c.uid });
     push(s, ...steps);
   }
   STEP.aeCheck = (s, st, v) => {
@@ -621,14 +616,6 @@
     log(s, '🗳️ Rogerinho, o Vereador: você recupera vida.', 'good');
     heal(s, st.p, 1);
   };
-  STEP.bola = (s, st, v) => {
-    const b = hasPerm(s, st.p, 'bola');
-    const L = locate(s, st.uid);
-    if (!b || !L) return;
-    if (v === undefined) return ask(s, st, { player: st.p, kind: 'confirm', title: 'Bola: Quem Perder Paga a Coca', text: `Descartar a Bola para ${nm(L.card)} atacar neste turno com +3 de ataque?`, options: [{ v: 0, id: L.card.id }], purpose: 'bola' });
-    if (v) { discardPerm(s, st.p, b); L.card.canAtkT = s.turn; L.card.bonusT = s.turn; log(s, `⚽ ${nm(L.card)} pode atacar neste turno com +3 de ataque!`, 'good'); }
-  };
-
   // ---------------------------------------------------------------- efeitos Ao Entrar
   function ownOthers(s, p, uid, zones) {
     const pl = s.players[p];
@@ -748,21 +735,21 @@
       case 'jonesRei': { let n = 0; if (drawSup(s, p)) n++; if (drawSup(s, p)) n++; log(s, `${src}: ${pn(s, p)} comprou ${n} Suporte(s).`, 'good'); return; }
       case 'fredOraculo': { let n = 0; if (drawChar(s, p)) n++; if (drawChar(s, p)) n++; log(s, `${src}: ${pn(s, p)} comprou ${n} Personagem(ns).`, 'good'); return; }
       case 'donJones': {
-        const opts = ownOthers(s, p, st.uid, ['atk', 'def', 'apoio']).filter((c) => c.stunned);
-        const c = pickOne(s, st, v, { player: p, options: opts, optional: true, title: T('resgatar Atordoado'), text: 'Você pode devolver à mão 1 Personagem seu Atordoado.', purpose: 'rescue' });
+        if (pl.hand.length >= 7) { log(s, `${src}: mão cheia, nenhum Personagem voltou.`, 'warn'); return; }
+        const opts = ownOthers(s, p, st.uid, ['atk', 'def', 'apoio']).filter((c) => c.dmg > 0);
+        const c = pickOne(s, st, v, { player: p, options: opts, optional: true, title: T('resgatar ferido'), text: 'Você pode devolver à mão 1 Personagem seu com dano (o dano some).', purpose: 'rescue' });
         if (c) { removeFromField(s, c.uid); pl.hand.push(clean(c)); fx(s, { t: 'bounce', uid: c.uid }); log(s, `${nm(c)} voltou para a mão.`); }
         return;
       }
       case 'lecoDeus': {
-        if (evKey(s) === 'treta') { log(s, 'Treta no Grupo: nada sai do descarte.'); return; }
         const opts = pl.discard.filter((c) => D(c).type === 'sup' && D(c).kind !== 'imm' && D(c).cost <= 3 && D(c).fx !== 'gambiarra');
         const c = pickOne(s, st, v, { player: p, options: opts, title: T('recuperar Suporte'), text: 'Escolha 1 Suporte Permanente de custo ⚡3 ou menos do seu descarte.', purpose: 'recoverSup' });
         if (c) { pl.discard.splice(pl.discard.indexOf(c), 1); pl.hand.push(c); log(s, `${pn(s, p)} recuperou ${nm(c)} do descarte.`, 'good'); }
         return;
       }
       case 'gabrielSerio': {
-        if (zone !== 'def') return;
         const opts = fieldChars(pl).filter((c) => c.dmg > 0);
+        if (!opts.length) { log(s, `${src}: nenhum Personagem de ${pn(s, p)} tem dano para curar.`, 'warn'); return; }
         const c = pickOne(s, st, v, { player: p, options: opts, title: T('curar Personagem'), text: 'Escolha um Personagem seu para curar todo o dano.', purpose: 'cureOne', auto: true });
         if (c) { c.dmg = 0; fx(s, { t: 'shield', uid: c.uid }); log(s, `${nm(c)} foi curado.`, 'good'); }
         return;
@@ -867,10 +854,45 @@
     switch (C[st.id].fx) {
       case 'fifinha': { let n = 0; if (drawChar(s, p)) n++; if (drawChar(s, p)) n++; log(s, `${pn(s, p)} comprou ${n} Personagem(ns).`, 'good'); return; }
       case 'cafezinho': gainE(s, p, 2); return;
-      case 'agua': if (drawChar(s, p)) log(s, `${pn(s, p)} comprou 1 Personagem.`, 'good'); return;
-      case 'pf': heal(s, p, 3); return;
+      case 'agua': {
+        const opts = s.charDeck.filter((c) => D(c).cost <= 3);
+        if (!opts.length) { log(s, '💧 Água Gelada: nenhum Personagem de custo ⚡3 ou menos no baralho.', 'warn'); return; }
+        const c = pickOne(s, st, v, { player: p, options: opts, title: 'Água Gelada — procurar no baralho', text: 'Escolha 1 Personagem de custo ⚡3 ou menos do baralho para a sua mão.', purpose: 'tutor' });
+        if (c) {
+          if (pl.hand.length < 7) { s.charDeck.splice(s.charDeck.indexOf(c), 1); pl.hand.push(c); fx(s, { t: 'draw', p }); log(s, `${pn(s, p)} procurou no baralho e pegou ${nm(c)}.`, 'good'); }
+          else log(s, 'Mão cheia: nada foi para a mão.', 'warn');
+          shuffle(s, s.charDeck);
+        }
+        return;
+      }
+      case 'pf': {
+        if (!st.h) { st.h = true; heal(s, p, 1); }
+        const hurt = fieldChars(pl).filter((c) => c.dmg > 0);
+        const c = pickOne(s, st, v, { player: p, options: hurt, title: 'PF Reforçado — curar Personagem', text: 'Escolha 1 Personagem seu para curar todo o dano.', purpose: 'cureOne', auto: true });
+        if (c) { c.dmg = 0; fx(s, { t: 'shield', uid: c.uid }); log(s, `${nm(c)} foi curado.`, 'good'); }
+        return;
+      }
+      case 'bola': {
+        const opts = pl.atk.filter((c) => !c.stunned && c.attackedT !== s.turn);
+        if (!opts.length) { log(s, '⚽ Bola: nenhum Personagem em ⚔️ pode atacar agora.', 'warn'); return; }
+        const c = pickOne(s, st, v, { player: p, options: opts, title: 'Bola: Quem Perder Paga a Coca', text: 'Escolha 1 Personagem em ⚔️: Ligeiro e +3 de ataque neste turno; se derrotar um Personagem, você compra 1.', purpose: 'bolaTarget' });
+        if (c) { c.ligT = s.turn; c.bonusT = s.turn; c.drawKillT = s.turn; fx(s, { t: 'shield', uid: c.uid }); log(s, `⚽ ${nm(c)} ganhou Ligeiro e +3 de ataque neste turno!`, 'good'); }
+        return;
+      }
+      case 'porta': {
+        if (pl.hand.length >= 7) { log(s, '🚪 Porta dos Fundos: mão cheia, ninguém voltou.', 'warn'); return; }
+        const opts = fieldChars(pl).filter(bounceable);
+        const c = pickOne(s, st, v, { player: p, options: opts, title: 'Porta dos Fundos Dimensional', text: 'Escolha 1 Personagem seu para voltar à mão, curado. Neste turno ele custa ⚡2 a menos.', purpose: 'porta' });
+        if (c) {
+          removeFromField(s, c.uid);
+          pl.hand.push(clean(c));
+          pl.discUid = c.uid; pl.discT = s.turn;
+          fx(s, { t: 'bounce', uid: c.uid });
+          log(s, `🚪 ${nm(c)} saiu pela Porta dos Fundos: voltou curado para a mão e custa ⚡2 a menos neste turno.`, 'good');
+        }
+        return;
+      }
       case 'caixa': {
-        if (evKey(s) === 'treta') { log(s, 'Treta no Grupo: nada sai do descarte.'); return; }
         const opts = pl.discard.filter((c) => D(c).type === 'sup' && D(c).kind !== 'imm' && D(c).cost <= 3);
         const c = pickOne(s, st, v, { player: p, options: opts, title: 'Caixa de Ferramentas — recuperar Suporte', text: 'Escolha 1 Suporte Permanente de custo ⚡3 ou menos do descarte.', purpose: 'recoverSup' });
         if (c) { pl.discard.splice(pl.discard.indexOf(c), 1); pl.hand.push(c); log(s, `${pn(s, p)} recuperou ${nm(c)}.`, 'good'); }
@@ -888,14 +910,15 @@
           if (!opts.length) return;
           return ask(s, st, { player: p, kind: 'pick', title: 'Van do Bruno — Cabe Mais Um!', text: 'Escolha até 2 Personagens seus para mudar de área.', options: opts.map((c) => ({ v: c.uid, id: c.id })), min: 0, max: 2, purpose: 'van' });
         }
-        push(s, ...(v || []).map((u) => ({ k: 'zoneMove', p, uid: u })));
+        push(s, ...(v || []).flatMap((u) => [{ k: 'zoneMove', p, uid: u }, { k: 'setLig', uid: u }]));
         return;
       }
       case 'espelho': {
-        const lp = s.lastPlayed;
-        if (!lp || lp.p !== p || !AE.has(C[lp.id].fx) || C[lp.id].cost > 4) { log(s, 'Espelho: não há efeito Ao Entrar válido para copiar.'); return; }
-        log(s, `🪞 Espelho copiou o efeito de ${C[lp.id].name}!`, 'good');
-        return push(s, { k: 'ae', p, uid: lp.uid, id: lp.id });
+        const opts = fieldChars(pl).filter((c) => AE.has(D(c).fx) && D(c).cost <= 5);
+        if (!opts.length) { log(s, 'Espelho: nenhum Personagem seu em campo (custo ⚡5 ou menos) tem efeito Ao Entrar para copiar.', 'warn'); return; }
+        const c = pickOne(s, st, v, { player: p, options: opts, title: 'Espelho do "Faz Igual!"', text: 'Escolha 1 Personagem seu: o efeito Ao Entrar dele será copiado.', purpose: 'espelho' });
+        if (c) { log(s, `🪞 Espelho copiou o efeito de ${nm(c)}!`, 'good'); push(s, { k: 'ae', p, uid: c.uid, id: c.id }); }
+        return;
       }
       case 'garrafada': {
         heal(s, p, 3);
@@ -906,17 +929,17 @@
       case 'poltrona': {
         if (v === undefined) {
           return ask(s, st, { player: p, kind: 'option', title: C[st.id].name, text: 'Escolha 1:', purpose: 'poltrona',
-            options: [{ v: 'h', label: 'Recuperar ❤️3' }, { v: 'd', label: 'Comprar até 2 Personagens' }] });
+            options: [{ v: 'h', label: 'Curar todo o dano dos Personagens e recuperar ❤️2' }, { v: 'd', label: 'Comprar até 2 Personagens' }] });
         }
-        if (v === 'h') heal(s, p, 3);
+        if (v === 'h') { cureAll(s, p, 'Poltrona'); heal(s, p, 2); }
         else { let n = 0; if (drawChar(s, p)) n++; if (drawChar(s, p)) n++; log(s, `${pn(s, p)} comprou ${n} Personagem(ns).`); }
         return;
       }
       case 'churrasco': { let n = 0; for (let i = 0; i < 3; i++) if (drawChar(s, p)) n++; log(s, `${pn(s, p)} comprou ${n} Personagem(ns).`, 'good'); return; }
       case 'g220': {
         const opts = pl.hand.filter((c) => D(c).type === 'char' && canPlayCharAnywhere(s, p, c, 2));
-        const c = pickOne(s, st, v, { player: p, options: opts, title: 'Gambiarra 220V no 110V', text: 'Escolha 1 Personagem da mão para jogar agora pagando ⚡2 a menos.', purpose: 'g220' });
-        if (c) push(s, { k: 'zonePlay', p, uid: c.uid, red: 2 });
+        const c = pickOne(s, st, v, { player: p, options: opts, title: 'Gambiarra 220V no 110V', text: 'Escolha 1 Personagem da mão para jogar agora pagando ⚡2 a menos; ele ganha Ligeiro neste turno.', purpose: 'g220' });
+        if (c) push(s, { k: 'zonePlay', p, uid: c.uid, red: 2, lig: true });
         return;
       }
       case 'taxi': {
@@ -943,6 +966,7 @@
     }
   };
   STEP.gain = (s, st) => { gainE(s, st.p, st.n); };
+  STEP.setLig = (s, st) => { const L = locate(s, st.uid); if (L && LIM[L.z]) L.card.ligT = s.turn; };
   STEP.drawC = (s, st) => { if (drawChar(s, st.p)) log(s, `${pn(s, st.p)} comprou 1 Personagem.`, 'good'); };
   STEP.peekEvBottom = (s, st, v) => {
     const top = s.evDeck[0];
@@ -965,7 +989,7 @@
     const zs = ['atk', 'def', 'apoio'].filter((z) => space(s, st.p, z));
     if (!zs.length || pl.energy < charCost(s, st.p, c, st.red)) return;
     if (v === undefined) return ask(s, st, { player: st.p, kind: 'option', title: `Onde jogar ${nm(c)}?`, text: `Custo com desconto: ⚡${charCost(s, st.p, c, st.red)}`, purpose: 'zone', options: zs.map((z) => ({ v: z, label: ZI[z] + ' ' + ZN[z] })), cardId: c.id });
-    if (LIM[v]) playChar(s, st.p, c.uid, v, { red: st.red });
+    if (LIM[v]) playChar(s, st.p, c.uid, v, { red: st.red, lig: st.lig });
   };
   function canPlayCharAnywhere(s, p, c, red) {
     const pl = s.players[p];
@@ -999,35 +1023,20 @@
     const c = pickOne(s, st, v, { player: st.p, options: opts, title: `${D(L.card).name} — retirar Atordoamento`, text: 'Escolha o aliado que vai se recuperar.', purpose: 'unstun', auto: true });
     if (c) unstun(s, c);
   };
-  STEP.porta = (s, st, v) => {
-    const pl = s.players[st.p];
-    const c = pickOne(s, st, v, { player: st.p, options: fieldChars(pl), optional: true, title: 'Porta dos Fundos Dimensional', text: 'Escolha 1 Personagem seu para voltar à mão.', purpose: 'porta' });
-    if (!c) return;
-    const pt = hasPerm(s, st.p, 'porta');
-    if (!pt) return;
-    discardPerm(s, st.p, pt);
-    removeFromField(s, c.uid);
-    pl.hand.push(clean(c));
-    c.dmg = 0;
-    fx(s, { t: 'bounce', uid: c.uid });
-    log(s, `🚪 ${nm(c)} saiu pela Porta dos Fundos e voltou para a mão.`);
-  };
-
   // ---------------------------------------------------------------- Passar
-  STEP.afterPass = (s, st, v) => {
+  STEP.afterPass = (s, st) => {
     const p = st.p, pl = s.players[p];
-    if (st.what === 'bill') return;
-    const j = hasPerm(s, p, 'jardim');
-    if (!j || pl.life > 3 * G.RULES.heartPts || evKey(s) === 'discussao') return;
-    if (v === undefined) return ask(s, st, { player: p, kind: 'confirm', title: 'Jardim Milagroso da Dolores', text: 'Descartar o Jardim para recuperar ❤️3 (15 de vida)?', options: [{ v: 0, id: j.id }], purpose: 'jardim' });
-    if (v) { discardPerm(s, p, j); heal(s, p, 3); }
+    if (st.what !== 'jardim' || !hasPerm(s, p, 'jardim')) return;
+    pl.apoio.concat(pl.def).forEach((c) => {
+      if (c.dmg > 0) { c.dmg = Math.max(0, c.dmg - 3); log(s, `🌷 Jardim Milagroso: ${nm(c)} curou 3 de dano.`, 'good'); }
+    });
   };
 
   // ---------------------------------------------------------------- Combate
   function canAttack(s, p, c) {
     const pl = s.players[p];
     if (s.turn < G.RULES.noAttackUntil) return false;
-    return pl.atk.includes(c) && !c.stunned && c.attackedT !== s.turn && c.movedT !== s.turn && (c.enteredT !== s.turn || c.canAtkT === s.turn || D(c).fx === 'ligeiro');
+    return pl.atk.includes(c) && !c.stunned && c.attackedT !== s.turn && c.movedT !== s.turn && (c.enteredT !== s.turn || c.canAtkT === s.turn || D(c).fx === 'ligeiro' || c.ligT === s.turn || evKey(s) === 'alvoroco');
   }
   function attackTargets(s, p) {
     const o = s.players[opp(p)];
@@ -1036,6 +1045,26 @@
     if (!o.def.length && evKey(s) !== 'almoco') t.push('life');
     return t;
   }
+  // Ligeiro (da carta, de efeito ou do Evento Alvoroço) só ataca Personagens quando precisou dele para atacar
+  function heroBlocked(s, c) {
+    return D(c).fx === 'ligeiro' || (c.enteredT === s.turn && c.canAtkT !== s.turn && (c.ligT === s.turn || evKey(s) === 'alvoroco'));
+  }
+  function heroDmg(s, p, A) {
+    return D(A).atk + (hasPerm(s, p, 'torcida') ? 1 : 0) + (A.bonusT === s.turn ? 3 : 0) + (evKey(s) === 'jogoDecisivo' ? 1 : 0) + (hasPerm(s, p, 'boleto') ? 2 : 0);
+  }
+  STEP.peAsk = (s, st, v) => {
+    const A = locate(s, st.uid), o = opp(st.p), pe = hasPerm(s, o, 'pe');
+    if (!A) return;
+    const dmg = heroDmg(s, st.p, A.card);
+    if (!pe) { resolveAttack(s, st.p, A.card, 'life'); return; }
+    if (v === undefined) return ask(s, st, { player: o, kind: 'confirm', title: 'Pé de Benção da Vó', text: `${nm(A.card)} vai atacar o seu herói (${dmg} de dano). Descartar o Pé de Benção para cancelar o ataque?`, options: [{ v: 0, id: pe.id }], purpose: 'peCancel', dmg });
+    if (v) {
+      discardPerm(s, o, pe);
+      A.card.attackedT = s.turn;
+      fx(s, { t: 'shield', uid: A.card.uid });
+      log(s, `🙏 Pé de Benção da Vó cancelou o ataque de ${nm(A.card)}!`, 'good');
+    } else resolveAttack(s, st.p, A.card, 'life');
+  };
   G.canAttack = canAttack;
   G.attackTargets = attackTargets;
   // Combate: o atacante causa o próprio ATK; um Personagem atacado contra-ataca com o ATK dele (ao mesmo tempo).
@@ -1044,9 +1073,9 @@
   function resolveAttack(s, p, A, target) {
     const o = opp(p), O = s.players[o];
     A.attackedT = s.turn;
-    const bonus = (hasPerm(s, p, 'torcida') ? 1 : 0) + (A.bonusT === s.turn ? 3 : 0);
+    const bonus = (hasPerm(s, p, 'torcida') ? 1 : 0) + (A.bonusT === s.turn ? 3 : 0) + (evKey(s) === 'jogoDecisivo' ? 1 : 0);
     if (target === 'life') {
-      const dmg = D(A).atk + bonus + (hasPerm(s, p, 'boleto') ? 2 : 0);
+      const dmg = heroDmg(s, p, A);
       fx(s, { t: 'attack', uid: A.uid, target: 'life', p: o, a: dmg });
       log(s, `⚔️ ${nm(A)} atacou ${pn(s, o)} diretamente!`, 'warn');
       loseLife(s, o, dmg, nm(A));
@@ -1056,7 +1085,7 @@
     const challenge = O.atk.includes(T);
     let a = D(A).atk + bonus;
     if (O.def.includes(T) && hasPerm(s, o, 'sofa')) a = Math.max(1, a - 2); // Sofá: Defensores sofrem 2 de dano a menos
-    const t = D(T).atk + (D(T).fx === 'quebraManta' && challenge ? 2 : 0) + (O.def.includes(T) ? G.RULES.defCounter : 0); // contra-ataque
+    const t = D(T).atk + (D(T).fx === 'quebraManta' && challenge ? 2 : 0) + (O.def.includes(T) ? G.RULES.defCounter : 0) + (evKey(s) === 'jogoDecisivo' && O.atk.includes(T) ? 1 : 0); // contra-ataque
     fx(s, { t: 'attack', uid: A.uid, target: T.uid, a, d: t });
     log(s, `⚔️ ${nm(A)} (${a} de ataque) ${challenge ? 'desafiou' : 'atacou'} ${nm(T)}, que contra-atacou com ${t}.`);
     const lastDef = !challenge && O.def.length === 1;
@@ -1093,10 +1122,9 @@
       s.defeated++;
     }
     if (lastDef && tDown) {
-      const pe = hasPerm(s, o, 'pe');
-      if (pe) { discardPerm(s, o, pe); log(s, '🙏 Pé de Benção da Vó!'); heal(s, o, 3); }
       if (D(T).fx === 'julianaDama') { log(s, 'Juliana, Dama da Paciência Infinita: a última Defesa cai, mas a vida volta!', 'good'); heal(s, o, 2); }
     }
+    if (tDown && A.drawKillT === s.turn && drawChar(s, p)) log(s, `⚽ Bola: ${pn(s, p)} derrotou um Personagem e comprou 1 Personagem.`, 'good');
     // perks de combate: Fofoca do Churrasco (compra ao perder) e Fiscal da Cerveja (tira vida ao derrotar)
     if (aDown && hasPerm(s, p, 'fofoca') && drawChar(s, p)) log(s, `🗣️ Fofoca do Churrasco: ${pn(s, p)} comprou 1 Personagem.`, 'good');
     if (tDown && hasPerm(s, o, 'fofoca') && drawChar(s, o)) log(s, `🗣️ Fofoca do Churrasco: ${pn(s, o)} comprou 1 Personagem.`, 'good');
@@ -1179,7 +1207,7 @@
         if (pl.cycleT === s.turn) return err('Você já descartou e comprou uma carta neste turno.');
         if (pl.energy < G.RULES.cycleCost) return err(`Descartar e comprar custa ⚡${G.RULES.cycleCost}.`);
         const isSup = D(c).type === 'sup';
-        if (isSup ? !(s.supDeck.length || (evKey(s) !== 'treta' && s.players.some((x) => x.discard.some((y) => D(y).type === 'sup')))) : !s.charDeck.length) return err('O baralho está vazio.');
+        if (isSup ? !(s.supDeck.length || (s.players.some((x) => x.discard.some((y) => D(y).type === 'sup')))) : !s.charDeck.length) return err('O baralho está vazio.');
         pl.energy -= G.RULES.cycleCost;
         pl.cycleT = s.turn;
         pl.hand.splice(pl.hand.indexOf(c), 1);
@@ -1189,7 +1217,6 @@
         break;
       }
       case 'move': {
-        if (evKey(s) === 'temporal') return err('Temporal de Domingo: mover Personagens está bloqueado.');
         const L = locate(s, a.uid);
         if (!L || L.p !== p || !LIM[L.z]) return err('Carta inválida.');
         if (L.card.stunned) return err('Personagem Atordoado não pode se mover.');
@@ -1202,7 +1229,6 @@
         break;
       }
       case 'activate': {
-        if (evKey(s) === 'festa') return err('Festa da Família: habilidades Ativáveis bloqueadas.');
         const L = locate(s, a.uid);
         if (!L || L.p !== p || !LIM[L.z] || !D(L.card).activatable) return err('Carta inválida.');
         if (L.card.stunned) return err('Personagem Atordoado não pode usar habilidades.');
@@ -1217,17 +1243,12 @@
         push(s, { k: 'act', p, uid: L.card.uid });
         break;
       }
-      case 'usePerm': {
-        const c = pl.perms.find((x) => x.uid === a.uid);
-        if (!c || D(c).fx !== 'porta' || !fieldChars(pl).length) return err('Não dá para usar agora.');
-        push(s, { k: 'porta', p });
-        break;
-      }
       case 'attack': {
         const A = pl.atk.find((x) => x.uid === a.uid);
         if (!A || !canAttack(s, p, A)) return err('Esse Personagem não pode atacar agora.');
         if (!attackTargets(s, p).includes(a.target)) return err('Alvo inválido.');
-        if (a.target === 'life' && D(A).fx === 'ligeiro') return err('Ligeiro só pode atacar Personagens.');
+        if (a.target === 'life' && heroBlocked(s, A)) return err('Ligeiro só pode atacar Personagens.');
+        if (a.target === 'life' && hasPerm(s, opp(p), 'pe')) { push(s, { k: 'peAsk', p, uid: A.uid }); break; }
         resolveAttack(s, p, A, a.target);
         break;
       }
@@ -1255,20 +1276,19 @@
         ['atk', 'def', 'apoio'].forEach((z) => { if (space(s, p, z)) out.push({ t: 'playChar', uid: c.uid, zone: z }); });
       } else if (pl.energy >= supCost(s, p, c) && !(D(c).fx === 'cafezinho' && pl.turns <= 1)) out.push({ t: 'playSup', uid: c.uid });
     });
-    if (pl.hand.length < 7 && pl.buyT !== s.turn && pl.energy >= G.RULES.buyCost && (deckN(s, 'sup') || (evKey(s) !== 'treta' && s.players.some((x) => x.discard.some((c) => D(c).type === 'sup'))))) out.push({ t: 'buySup' });
-    if (pl.cycleT !== s.turn && pl.energy >= G.RULES.cycleCost) pl.hand.forEach((c) => { if (D(c).type === 'char' ? deckN(s, 'char') : (deckN(s, 'sup') || (evKey(s) !== 'treta' && s.players.some((x) => x.discard.some((y) => D(y).type === 'sup'))))) out.push({ t: 'cycle', uid: c.uid }); });
-    if (evKey(s) !== 'temporal' && pl.energy >= G.RULES.moveCost) {
+    if (pl.hand.length < 7 && pl.buyT !== s.turn && pl.energy >= G.RULES.buyCost && (deckN(s, 'sup') || (s.players.some((x) => x.discard.some((c) => D(c).type === 'sup'))))) out.push({ t: 'buySup' });
+    if (pl.cycleT !== s.turn && pl.energy >= G.RULES.cycleCost) pl.hand.forEach((c) => { if (D(c).type === 'char' ? deckN(s, 'char') : (deckN(s, 'sup') || (s.players.some((x) => x.discard.some((y) => D(y).type === 'sup'))))) out.push({ t: 'cycle', uid: c.uid }); });
+    if (pl.energy >= G.RULES.moveCost) {
       ['atk', 'def', 'apoio'].forEach((z) => pl[z].forEach((c) => {
         if (c.stunned || c.movedT === s.turn) return;
         ['atk', 'def', 'apoio'].forEach((z2) => { if (z2 !== z && space(s, p, z2)) out.push({ t: 'move', uid: c.uid, zone: z2 }); });
       }));
     }
-    if (evKey(s) !== 'festa') fieldChars(pl).forEach((c) => {
+    fieldChars(pl).forEach((c) => {
       if (D(c).activatable && !c.stunned && c.actT !== s.turn && pl.energy >= actCost(s, p, c) && actTargets(s, p, c).length) out.push({ t: 'activate', uid: c.uid });
     });
     const tg = attackTargets(s, p);
-    pl.atk.forEach((c) => { if (canAttack(s, p, c)) tg.forEach((t) => { if (t === 'life' && D(c).fx === 'ligeiro') return; out.push({ t: 'attack', uid: c.uid, target: t }); }); });
-    pl.perms.forEach((c) => { if (D(c).fx === 'porta' && fieldChars(pl).length) out.push({ t: 'usePerm', uid: c.uid }); });
+    pl.atk.forEach((c) => { if (canAttack(s, p, c)) tg.forEach((t) => { if (t === 'life' && heroBlocked(s, c)) return; out.push({ t: 'attack', uid: c.uid, target: t }); }); });
     out.push({ t: 'endTurn' });
     return out;
   };

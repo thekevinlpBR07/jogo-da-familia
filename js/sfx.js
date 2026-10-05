@@ -1,7 +1,7 @@
 /* Efeitos sonoros sintetizados (WebAudio) — nenhum arquivo de áudio necessário. */
 (function () {
   const G = window.G;
-  let ctx = null;
+  let ctx = null, sfxGain = null;
   let on = true;
   try { on = localStorage.getItem('jf-sound') !== 'off'; } catch (e) { /* sem storage */ }
 
@@ -10,6 +10,10 @@
       const A = window.AudioContext || window.webkitAudioContext;
       if (!A) return null;
       ctx = new A();
+      sfxGain = ctx.createGain();
+      sfxGain.gain.value = G.Out ? G.Out.curve(G.Out.vol.sfx) : 0.6;
+      sfxGain.connect(ctx.destination);
+      if (G.Out) G.Out.applyCtx(ctx);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
@@ -26,7 +30,7 @@
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol || 0.15, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(c.destination);
+    o.connect(g).connect(sfxGain);
     o.start(t);
     o.stop(t + dur + 0.05);
   }
@@ -44,7 +48,7 @@
     f.frequency.value = hp || 800;
     const g = c.createGain();
     g.gain.value = vol || 0.2;
-    src.connect(f).connect(g).connect(c.destination);
+    src.connect(f).connect(g).connect(sfxGain);
     src.start(t);
   }
   const S = {
@@ -77,4 +81,5 @@
   };
   G.sfx.isOn = () => on;
   G.sfx.ctx = ac;
+  if (G.Out) G.Out.onVol.sfx = (v) => { if (sfxGain) sfxGain.gain.value = G.Out.curve(v); };
 })();

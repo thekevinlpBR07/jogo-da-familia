@@ -45,7 +45,7 @@
     if (cur) { cur.onended = null; cur.pause(); cur = null; }
     const a = chan(); // elemento único, destravado por um toque do usuário (celulares bloqueiam áudio vindo da rede)
     a.src = m.url;
-    a.volume = 1;
+    a.volume = G.Out ? G.Out.curve(G.Out.vol.meme) : 1;
     cur = a;
     now = m;
     if (G.Music && G.Music.duck) G.Music.duck(true, 'meme');
@@ -56,6 +56,7 @@
     if (G.UI && G.UI.toast && who) G.UI.toast(`${m.emoji} <b>${String(who).replace(/[<>&]/g, '')}</b>: ${m.label}`, '', 2200);
     return true;
   };
+  if (G.Out) G.Out.onVol.meme = (v) => { if (cur) cur.volume = G.Out.curve(v); };
   Memes.setMuted = function (v) {
     muted = !!v;
     try { localStorage.setItem('jf-memes-muted', muted ? '1' : '0'); } catch (e) { /* sem storage */ }

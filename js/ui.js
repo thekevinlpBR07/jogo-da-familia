@@ -53,7 +53,7 @@
       if (inst.stunned) status.push('💫 Atordoado');
       if (inst.protStun) status.push('🛡️ Não pode ser Atordoado até o próximo turno do dono');
       if (inst.protMove) status.push('🔒 Não pode ser movido por efeitos adversários');
-      if (V && inst.enteredT === V.turn && inst.canAtkT !== V.turn) status.push('💤 Recém-jogado: ainda não pode atacar');
+      if (V && inst.enteredT === V.turn && inst.canAtkT !== V.turn && inst.ligT !== V.turn && d.fx !== 'ligeiro' && !(V.event && C[V.event].fx === 'alvoroco')) status.push('💤 Recém-jogado: ainda não pode atacar');
     }
     const kv = d.type === 'char'
       ? `<span>⚡ ${d.cost}</span><span>⚔️ ${d.atk}</span><span>🛡️ ${d.def}</span><span class="rar-${d.rarity}">★ ${d.rarityName}</span>${d.ecost ? `<span>Custo do efeito ⚡${d.ecost}</span>` : ''}${d.flamengo ? '<span>🔴⚫ Flamengo</span>' : ''}${d.updated ? '<span title="A imagem impressa ainda mostra o texto antigo">🔄 Texto atualizado</span>' : ''}`
@@ -594,23 +594,27 @@
     if (c.canAtkT === V.turn) badges += '<b title="Pode atacar neste turno">⚽</b>';
     if (c.left > 0) badges += `<b class="perkleft" title="Perk: dura mais ${c.left} turno(s) seu(s)">⏳${c.left}</b>`;
     let aBonus = 0, shield = false;
+    const mods = [];
     if (opts.field && opts.owner != null && d.type === 'char' && (opts.zone === 'atk' || opts.zone === 'def' || opts.zone === 'apoio')) {
       const has = (p, f) => V.players[p].perms.some((x) => C[x.id].fx === f);
-      if (has(opts.owner, 'torcida')) aBonus += 1;
-      if (has(opts.owner, 'boleto')) aBonus += 2;
-      if (c.bonusT === V.turn) aBonus += 3;
-      if (opts.zone === 'def' && has(1 - opts.owner, 'sofa')) shield = true;
+      if (has(opts.owner, 'torcida')) { aBonus += 1; mods.push(['📣', '+1⚔️', 'up', 'Torcida Organizada: +1 de ataque']); }
+      if (has(opts.owner, 'boleto')) { aBonus += 2; mods.push(['🧾', '+2⚔️', 'up', 'Boleto Vencido: +2 de dano nos ataques ao herói inimigo']); }
+      if (c.bonusT === V.turn) { aBonus += 3; mods.push(['⚽', '+3⚔️', 'up', 'Bola: +3 de ataque neste turno']); }
+      if (opts.zone === 'atk' && V.event && C[V.event].fx === 'jogoDecisivo') { aBonus += 1; mods.push(['🏆', '+1⚔️', 'up', 'Domingo de Jogo Decisivo: +1 de ataque']); }
+      if (opts.zone === 'def' && has(1 - opts.owner, 'sofa')) { shield = true; mods.push(['🛋️', '−2🛡️', 'down', 'Sofá: este Defensor sofre 2 de dano a menos']); }
     }
-    if (aBonus) badges += `<b class="modb up" title="Ataque aumentado por efeito: +${aBonus}">⚔️+${aBonus}</b>`;
-    if (shield) badges += '<b class="modb down" title="Sofá: este Defensor sofre 2 de dano a menos">🛋️-2</b>';
+    const rib = mods.length ? `<div class="modrib">${mods.map((m) => `<span class="${m[2]}" title="${m[3]}">${m[0]} ${m[1]}</span>`).join('')}</div>` : '';
     el.innerHTML = `<img src="${d.img}" alt="${esc(G.fullName(d))}" draggable="false">` +
       (d.type === 'char' && !opts.noStats ? `<div class="stats"><span class="a ${aBonus ? 'buff' : ''}">⚔️${d.atk + aBonus}</span><span class="d ${c.dmg ? 'hurt' : ''} ${shield ? 'buff' : ''}">🛡️${d.def - (c.dmg || 0)}</span></div>` : '') +
+      rib +
       (badges ? `<div class="badges">${badges}</div>` : '') +
       (d.type === 'char' && c.dmg > 0 && !opts.noStats ? damageMark(d, c) : '');
     if (c.dmg > 0 && d.type === 'char') el.classList.add('damaged');
     if (c.stunned) el.classList.add('stunned');
+    if (aBonus) el.classList.add('buffed');
+    if (shield) el.classList.add('shielded');
     if (c.protStun || c.protMove) el.classList.add('protected');
-    if (opts.field && c.enteredT === V.turn && c.canAtkT !== V.turn && V.active === opts.owner) el.classList.add('fresh');
+    if (opts.field && c.enteredT === V.turn && c.canAtkT !== V.turn && c.ligT !== V.turn && C[c.id].fx !== 'ligeiro' && !(V.event && C[V.event].fx === 'alvoroco') && V.active === opts.owner) el.classList.add('fresh');
     bindPreview(el, c.id);
     bindZoom(el, c.id, c);
     return el;
@@ -777,7 +781,6 @@
     const d = C[c.id];
     const pl = V.players[me];
     if (c.actT === V.turn) return 'essa habilidade já foi usada neste turno (1 vez por turno).';
-    if (V.event && C[V.event].fx === 'festa') return 'o Evento Festa da Família bloqueia habilidades Ativáveis.';
     if (c.stunned) return 'este Personagem está Atordoado.';
     const cost = G.actCost(V, me, c);
     if (pl.energy < cost) return `custa ⚡${cost} e você tem ⚡${pl.energy}.`;
@@ -994,34 +997,122 @@
       document.body.appendChild(b);
     };
   }
+  // ---------- configurações (volumes, saída de som, microfone) — também abre com a tecla ESC
+  const pct = (v) => Math.round(v * 100);
+  function settingsHtml() {
+    const O = G.Out, M = G.Music;
+    const row = (id, label, v) => `<label class="set-row"><span>${label}</span><input type="range" min="0" max="100" value="${pct(v)}" data-vol="${id}"><b data-volv="${id}">${pct(v)}%</b></label>`;
+    return `<div class="set-box">
+      <h4>🎚️ Volumes</h4>
+      ${row('music', '🎵 Música', M.vol)}${row('sfx', '🔊 Efeitos', O.vol.sfx)}${row('meme', '🎭 Memes', O.vol.meme)}${row('voice', '🎙️ Voz do outro jogador', O.vol.voice)}
+      <h4>🔈 Som e microfone</h4>
+      <label class="set-row sel"><span>Saída de som</span><select data-sink><option value="">Padrão do aparelho</option></select></label>
+      <label class="set-row sel"><span>Microfone</span><select data-micsel><option value="">Padrão do aparelho</option></select></label>
+      <p class="sub set-note" data-note></p>
+      <div class="set-player"><span class="np-title" data-np></span><span class="np-ctl"><button data-mp="prev" title="Anterior">⏮</button><button data-mp="toggle" title="Pausar / tocar">⏸</button><button data-mp="next" title="Próxima">⏭</button></span></div>
+      <button class="btn small" data-music>🎵 Escolher música</button> <button class="btn small" data-sound>${G.sfx.isOn() ? '🔊 Efeitos ligados' : '🔇 Efeitos desligados'}</button>
+    </div>`;
+  }
+  function bindSettings(m) {
+    const O = G.Out, M = G.Music;
+    $$('[data-vol]', m).forEach((r) => {
+      r.oninput = () => {
+        const v = r.value / 100, k = r.dataset.vol;
+        $(`[data-volv="${k}"]`, m).textContent = r.value + '%';
+        if (k === 'music') M.setVol(v); else O.setVol(k, v);
+      };
+    });
+    UI.bindMusicControls(m);
+    UI.paintMusicControls();
+    $('[data-music]', m).onclick = () => { m.close(); UI.musicPicker(); };
+    $('[data-sound]', m).onclick = (e) => { const on = G.sfx.toggle(); e.target.textContent = on ? '🔊 Efeitos ligados' : '🔇 Efeitos desligados'; };
+    const sink = $('[data-sink]', m), mic = $('[data-micsel]', m), note = $('[data-note]', m);
+    const fill = async () => {
+      const d = await O.devices();
+      const opt = (list, cur, sel) => { sel.innerHTML = `<option value="">Padrão do aparelho</option>` + list.filter((x) => x.id && x.id !== 'default').map((x) => `<option value="${esc(x.id)}" ${x.id === cur ? 'selected' : ''}>${esc(x.label)}</option>`).join(''); };
+      opt(d.out, O.sink, sink);
+      opt(d.mic, O.mic, mic);
+      const named = d.mic.some((x) => x.label && !/^Microfone \d+$/.test(x.label));
+      note.textContent = (O.canSink ? '' : 'Este navegador não deixa escolher a saída de som (funciona no Chrome e no Edge). ') + (named ? '' : 'Os nomes dos aparelhos aparecem depois que o microfone for liberado (botão 🎤 no jogo online).');
+    };
+    sink.disabled = !O.canSink;
+    sink.onchange = () => O.setSink(sink.value);
+    mic.onchange = () => O.setMic(mic.value);
+    fill();
+  }
+  UI.settings = function () {
+    const m = UI.modal(`<h3>⚙️ Configurações</h3>${settingsHtml()}<div class="opt-list"><button class="btn gold" data-x>Fechar</button></div>`);
+    $('[data-x]', m).onclick = () => m.close();
+    bindSettings(m);
+    return m;
+  };
   UI.gameMenu = function () {
-    const m = UI.modal(`<h3>Menu</h3><div class="opt-list">
+    const online = document.body.classList.contains('online');
+    const m = UI.modal(`<h3>Menu</h3>${settingsHtml()}<div class="opt-list">
       <button class="btn" data-rules>📜 Regras rápidas</button>
       <button class="btn" data-log>🧾 Histórico da partida</button>
-      <button class="btn" data-sound>${G.sfx.isOn() ? '🔊 Efeitos ligados' : '🔇 Efeitos desligados'}</button>
-      ${document.body.classList.contains('online') ? `<button class="btn" data-mic>${G.Voice.micOn ? '🎙️ Microfone: ligado' : '🎤 Microfone: desligado'}</button><button class="btn" data-hear>${G.Voice.hearOn ? '🔊 Ouvindo o outro jogador' : '🔇 Voz do outro: silenciada'}</button>` : ''}
+      ${online ? `<button class="btn" data-chat>💬 Chat</button><button class="btn" data-mic>${G.Voice.micOn ? '🎙️ Microfone: ligado' : '🎤 Microfone: desligado'}</button><button class="btn" data-hear>${G.Voice.hearOn ? '🔊 Ouvindo o outro jogador' : '🔇 Voz do outro: silenciada'}</button>` : ''}
       <button class="btn" data-errs>🧾 Copiar relatório de erros</button>
       <button class="btn" data-skip>${UI.autoSkip() ? '⏭ Pular turno sozinho sem jogadas: ligado' : '⏭ Pular turno sozinho sem jogadas: desligado'}</button>
-      <button class="btn" data-music>🎵 Música: ${G.Music.label().replace(/^\S+\s/, '')}</button>
       <button class="btn wine" data-quit>🏳️ Sair da partida</button>
       <button class="btn gold" data-x>Continuar jogando</button></div>`);
+    bindSettings(m);
     $('[data-x]', m).onclick = () => m.close();
     $('[data-log]', m).onclick = () => { m.close(); UI.showLog(); };
     $('[data-rules]', m).onclick = () => { m.close(); UI.rules(); };
-    $('[data-sound]', m).onclick = (e) => { const on = G.sfx.toggle(); e.target.textContent = on ? '🔊 Efeitos ligados' : '🔇 Efeitos desligados'; };
-    $('[data-errs]', m).onclick = () => { const r = G.errorReport ? G.errorReport() : ''; if (navigator.clipboard && r) navigator.clipboard.writeText(r).then(() => UI.toast('Relatório copiado. Cole no chat para eu corrigir. 🧾'), () => UI.toast('Não consegui copiar: ' + r.slice(0, 120), 'err', 6000)); else UI.toast(r ? r.slice(0, 160) : 'Nenhum erro registrado. ✅', '', 4000); };
+    const ch = $('[data-chat]', m);
+    if (ch) ch.onclick = () => { m.close(); UI.chatPanel(true); };
+    $('[data-errs]', m).onclick = () => { const r = G.errorReport ? G.errorReport() : ''; if (navigator.clipboard && r) navigator.clipboard.writeText(r).then(() => UI.toast('Relatório copiado. Cole no chat para eu corrigir. 🧾'), () => UI.toast('Não consegui copiar.', 'err')); else UI.toast('Nenhum erro registrado. 👍'); };
     $('[data-skip]', m).onclick = (e) => { UI.setAutoSkip(!UI.autoSkip()); e.target.textContent = UI.autoSkip() ? '⏭ Pular turno sozinho sem jogadas: ligado' : '⏭ Pular turno sozinho sem jogadas: desligado'; };
-    $('[data-music]', m).onclick = () => { m.close(); UI.musicPicker(); };
     const mic = $('[data-mic]', m), hear = $('[data-hear]', m);
     if (mic) mic.onclick = async () => { await UI.micClick(); mic.textContent = G.Voice.micOn ? '🎙️ Microfone: ligado' : '🎤 Microfone: desligado'; };
     if (hear) hear.onclick = () => { G.Voice.setHear(!G.Voice.hearOn); hear.textContent = G.Voice.hearOn ? '🔊 Ouvindo o outro jogador' : '🔇 Voz do outro: silenciada'; };
     $('[data-quit]', m).onclick = () => {
       m.close();
       const solo = ctl.mode === 'ai';
-      const c = UI.modal(`<h3>Sair da partida?</h3><p class="sub">${solo ? 'Sua partida fica salva neste aparelho: dá para continuar depois em <b>Contra o Computador</b>.' : 'O progresso desta partida será perdido.'}</p><div class="btns"><button class="btn wine" data-y>Sair</button><button class="btn" data-n>Ficar</button></div>`);
+      const c = UI.modal(`<h3>Sair da partida?</h3><p class="sub">${solo ? 'Sua partida fica salva neste aparelho: dá para continuar depois em <b>Contra o Computador</b>.' : 'O progresso desta partida será perdido.'}</p><div class="btns"><button class="btn wine" data-y>Sair</button><button class="btn" data-n>Cancelar</button></div>`);
       $('[data-y]', c).onclick = () => { c.close(); ctl.onExit(); };
       $('[data-n]', c).onclick = () => c.close();
     };
+    return m;
+  };
+  // ---------- chat do jogo online
+  const chatLog = [];
+  let chatUnread = 0;
+  const paintChatDot = () => $$('.chat-dot').forEach((d) => { d.hidden = !chatUnread; d.textContent = chatUnread > 9 ? '9+' : chatUnread; });
+  UI.chatReset = function () { chatLog.length = 0; chatUnread = 0; paintChatDot(); const p = $('#chat-panel'); if (p) p.remove(); };
+  UI.chatReceive = function (who, text, mine) {
+    chatLog.push({ who, text, mine: !!mine });
+    const pn = $('#chat-panel');
+    if (pn) { paintChat(pn); return; }
+    if (!mine) { chatUnread++; paintChatDot(); UI.toast(`💬 <b>${esc(who)}</b>: ${esc(text).slice(0, 120)}`, '', 3500); G.sfx('emote'); }
+  };
+  function paintChat(pn) {
+    const box = $('[data-msgs]', pn);
+    box.innerHTML = chatLog.length ? chatLog.map((c) => `<div class="cm ${c.mine ? 'me' : ''}"><b>${esc(c.who)}</b> ${esc(c.text)}</div>`).join('') : '<p class="sub">Escreva uma mensagem para o outro jogador.</p>';
+    box.scrollTop = box.scrollHeight;
+  }
+  UI.chatPanel = function (force) {
+    let pn = $('#chat-panel');
+    if (pn) { if (force !== true) pn.remove(); return; }
+    pn = document.createElement('div');
+    pn.id = 'chat-panel';
+    pn.innerHTML = `<div class="mm-head"><b>💬 Chat</b><span class="mm-now"></span><button class="mm-x" data-close title="Fechar">✕</button></div>
+      <div class="chat-msgs" data-msgs></div>
+      <form class="chat-form"><input type="text" maxlength="200" placeholder="Digite e aperte Enter…" autocomplete="off" data-in><button class="btn small gold" type="submit">Enviar</button></form>`;
+    document.body.appendChild(pn);
+    chatUnread = 0; paintChatDot();
+    paintChat(pn);
+    const inp = $('[data-in]', pn);
+    $('form', pn).onsubmit = (e) => {
+      e.preventDefault();
+      const t = inp.value.trim();
+      if (!t || !ctl.chat) return;
+      inp.value = '';
+      ctl.chat(t.slice(0, 200));
+    };
+    $('[data-close]', pn).onclick = () => pn.remove();
+    setTimeout(() => inp.focus(), 50);
   };
   // botões ⏮ ⏯ ⏭ (mini player e seletor)
   UI.bindMusicControls = function (root) {
@@ -1117,7 +1208,7 @@
       <h4>Combate</h4><p>O atacante causa o próprio ⚔️ de dano. Um Personagem atacado <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo. O dano <b>fica na carta para sempre</b> até que um efeito de <b>cura</b> o remova, e a carta cai quando o dano chega à sua 🛡️. Cartas <b>Ligeiro</b> podem atacar assim que entram, mas só atacam Personagens. Dá para combinar vários ataques para derrubar um alvo.</p>
       <p>Contra um herói com Defensores, ataque os Defensores. <b>Desafio</b>: atacar um Personagem do Ataque inimigo. Sem Defensores, <b>todos os seus atacantes podem atacar o herói</b> (cada um tirando vida igual ao seu ⚔️, sem contra-ataque) <b>ou os Personagens em 🤝 Apoio</b>.</p>
       <h4>Descartar e comprar</h4><p>Uma vez por turno, pague <b>⚡1</b> para descartar 1 carta da mão e comprar 1 do mesmo tipo (Personagem por Personagem, Suporte por Suporte). Serve para trocar uma carta que não dá para jogar.</p>
-      <h4>Perks (Suportes Permanentes)</h4><p>Perks ocupam uma das 2 vagas 🛠️, têm efeito passivo e <b>duram 3 turnos seus</b> (o ⏳ na carta mostra quantos faltam): <b>Torcida Organizada</b> (+1 de dano em todos os ataques), <b>Boleto Vencido</b> (+2 de dano no herói), <b>Fofoca do Churrasco</b> (compra 1 quando um Personagem seu cai), <b>Fiscal da Cerveja</b> (adversário perde ❤️1 quando seu Personagem derrota outro), <b>Soneca Estratégica</b> (recupera ❤️2 se ninguém atacou), <b>Bill</b> (compra extra), <b>Sofá</b> (Defensores sofrem 2 de dano a menos) e <b>Cristal</b> (cura ❤️1 por turno).</p>
+      <h4>Perks (Suportes Permanentes)</h4><p>Perks ocupam uma das 2 vagas 🛠️, têm efeito passivo e <b>duram 3 turnos seus</b> (o ⏳ na carta mostra quantos faltam): <b>Torcida Organizada</b> (+1 de dano em todos os ataques), <b>Boleto Vencido</b> (+2 de dano no herói), <b>Fofoca do Churrasco</b> (compra 1 quando um Personagem seu cai), <b>Fiscal da Cerveja</b> (adversário perde ❤️1 quando seu Personagem derrota outro), <b>Soneca Estratégica</b> (recupera ❤️2 se ninguém atacou), <b>Bill</b> (compra extra), <b>Sofá</b> (Defensores sofrem 2 de dano a menos), <b>Cristal</b> (cada Personagem seu cura 2 de dano no início do seu turno) e <b>Jardim</b> (Personagens em Apoio ou Defesa curam 3 de dano no fim do seu turno).</p>
       <h4>Dicas de energia e custo</h4><p>As cartas custam de <b>⚡1 a ⚡10</b> (o número no selo dourado). Jogar cartas baratas cedo e guardar as fortes para depois é normal. Mover custa ⚡1, só vale uma vez por Personagem por turno, e <b>quem se moveu não ataca</b> naquele turno. Personagem recém-jogado também só ataca no turno seguinte. O dano que uma carta sofreu aparece em vermelho na defesa dela.</p>
       <h4>Atordoado</h4><p>Eventos (como o Sono Depois do Almoço) podem Atordoar: não ataca, não usa Ativável, não se move. Continua defendendo. Recupera no fim do próximo turno do dono.</p>
       <h4>Limites</h4><p>Mão: 7 cartas · Energia: ⚡10 · Vida: 25 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>

@@ -92,7 +92,7 @@
     },
     {
       t: 'Atordoamento 💫',
-      body: `<p>Alguns efeitos de cartas <b>Atordoam</b> um Personagem. Um Personagem Atordoado:</p>
+      body: `<p>Alguns <b>Eventos</b> (como o Sono Depois do Almoço) <b>Atordoam</b> Personagens. Um Personagem Atordoado:</p>
         <ul><li>Não ataca, não usa habilidade Ativável, não se move e não pode ser movido por efeitos.</li>
         <li><b>Continua defendendo</b> se estiver na 🛡️.</li>
         <li>Se recupera no <b>fim do próximo turno</b> do dono.</li>
@@ -107,7 +107,7 @@
         <li>🤫 <b>Fofoca do Churrasco</b>: quando um Personagem seu cai, você compra 1.</li>
         <li>🍺 <b>Fiscal da Cerveja</b>: quando seu Personagem derrota outro, o adversário perde ❤️1.</li>
         <li>😴 <b>Soneca Estratégica</b>: se ninguém atacou, você recupera ❤️2.</li></ul>
-        <p>Os Suportes de cura agora recuperam bastante: ❤️2 ou ❤️3 (10 a 15 pontos de vida).</p>`,
+        <p>Suportes de cura mostram na carta quanto recuperam. Lembre: o dano nos Personagens é permanente e só some com efeitos de cura.</p>`,
       vis: () => card('s25', 'transform:rotate(-7deg)') + card('s28', 'transform:translateY(-10px)') + card('s29', 'transform:rotate(7deg)'),
     },
     {
@@ -183,7 +183,7 @@
         tip('nrg', 'A energia recarrega', 'Todo turno a energia enche até o máximo (que sobe 1 por turno, até ⚡10). O que sobrar <b>se perde</b>, então use tudo!');
         if (pl.hand.some((c) => G.CARDS[c.id].type === 'sup')) tip('sup', 'Suportes', 'Suportes (verdes) também gastam energia. Os <b>Imediatos</b> fazem efeito na hora; os <b>Permanentes</b> ficam no campo, à direita.');
         if (legal.some((a) => a.t === 'attack')) {
-          tip('atk', 'Hora de atacar!', 'Personagens seus <b>brilhando em laranja</b> podem atacar. Toque num deles e depois no alvo 🎯. O alvo contra-ataca com o ⚔️ dele, e o dano fica na carta até o turno do dono.');
+          tip('atk', 'Hora de atacar!', 'Personagens seus <b>brilhando em laranja</b> podem atacar. Toque num deles e depois no alvo 🎯. O alvo contra-ataca com o ⚔️ dele, e o dano fica na carta até ser curado.');
           if (legal.some((a) => a.target === 'life')) tip('life', 'Caminho livre!', 'O adversário não tem Defensores: selecione um atacante e toque no <b>retrato do adversário</b>. <b>Todos</b> os seus atacantes podem atacar o herói!');
         }
         if (!legal.some((a) => a.t !== 'endTurn' && a.t !== 'buySup' && a.t !== 'cycle')) tip('end', 'Nada mais a fazer?', 'Quando não sobrar nada útil, toque em <b>Encerrar turno</b>. Personagens recém-jogados (💤) só atacam no próximo turno.');

@@ -60,6 +60,7 @@
     if (!inAudio) { inAudio = new Audio(); inAudio.autoplay = true; }
     inAudio.srcObject = s;
     inAudio.muted = !V.hearOn;
+    inAudio.volume = G.Out ? G.Out.vol.voice : 1;
     inAudio.play().catch(() => {});
     meter('other', s);
     changed();
@@ -83,7 +84,7 @@
       if (customStream) stream = customStream;
       else {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('secure');
-        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+        stream = await navigator.mediaDevices.getUserMedia({ audio: Object.assign({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, G.Out && G.Out.mic ? { deviceId: { exact: G.Out.mic } } : {}), video: false });
       }
     } catch (e) {
       V.error = e && e.message === 'secure' ? 'O microfone só funciona em site com HTTPS (cadeado).'
@@ -107,6 +108,7 @@
     changed();
   };
   V.toggleMic = function () { return V.micOn ? (V.disableMic(), true) : V.enableMic(); };
+  if (G.Out) G.Out.onVol.voice = (v) => { if (inAudio) inAudio.volume = v; };
   V.setHear = function (on) {
     V.hearOn = !!on;
     if (inAudio) inAudio.muted = !V.hearOn;

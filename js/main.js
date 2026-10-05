@@ -54,7 +54,11 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const m = $$('#modal-root .modal-bg').pop();
-      if (m && !m.dataset.pending && m.close) m.close();
+      const chat = document.getElementById('chat-panel');
+      if (m) { if (!m.dataset.pending && m.close) m.close(); }
+      else if (chat) chat.remove();
+      else if (screen === 'game') UI.gameMenu();
+      else UI.settings();
     }
   });
 
@@ -107,6 +111,7 @@
   UI.bindMusicControls($('#mini-player'));
   $('#btn-music-m').onclick = () => { G.sfx('click'); UI.musicPicker(); };
   $('#btn-meme').onclick = $('#btn-meme-m').onclick = () => { G.sfx('click'); UI.memePanel(); };
+  $('#btn-chat').onclick = $('#btn-chat-m').onclick = () => { G.sfx('click'); UI.chatPanel(); };
   // voz (só online)
   const paintVoice = () => {
     const V = G.Voice;
@@ -278,6 +283,7 @@
   }
   function exitGame() {
     clearTimeout(aiTimer);
+    UI.chatReset();
     G.Music.stop();
     G.Memes.stop();
     G.Voice.reset();
@@ -369,6 +375,7 @@
     else if (m.type === 'rematch' && game) hostNewGame();
     else if (m.type === 'ping') Net.send({ type: 'pong', t0: m.t0, th: Date.now() });
     else if (m.type === 'musicCmd') G.Music.sync.receive(m);
+    else if (m.type === 'chat' && game) UI.chatReceive(game.guest.name, String(m.text || '').slice(0, 200));
     else if (m.type === 'meme' && game) {
       // o anfitrião define a ordem: toca aqui e manda de volta para o convidado tocar também
       const who = game.guest.name;
@@ -398,6 +405,7 @@
       onExit: exitGame,
       onRematch: hostNewGame,
       meme: (id) => { G.Memes.play(id, myName()); Net.send({ type: 'meme', id, who: myName() }); },
+      chat: (t) => { UI.chatReceive(myName(), t, true); Net.send({ type: 'chat', text: t, who: myName() }); },
       emote: (e) => { UI.showEmote(e); Net.send({ type: 'emote', e }); },
     });
     hostBroadcast();
@@ -433,6 +441,7 @@
     if (m.type === 'pong') { onPong(m); return; }
     if (m.type === 'music') { G.Music.sync.receive(m); return; }
     if (m.type === 'meme') { G.Memes.play(String(m.id), m.who || ''); return; }
+    if (m.type === 'chat') { UI.chatReceive(String(m.who || 'Anfitrião').slice(0, 30), String(m.text || '').slice(0, 200)); return; }
     if (m.type === 'state') {
       if (!game || game.mode !== 'guest' || game.id !== m.id) {
         game = { mode: 'guest', id: m.id, avatars: m.avatars };
@@ -452,6 +461,7 @@
           onExit: exitGame,
           onRematch: () => Net.send({ type: 'rematch' }),
           meme: (id) => Net.send({ type: 'meme', id }),
+          chat: (t) => { UI.chatReceive(myName(), t, true); Net.send({ type: 'chat', text: t, who: myName() }); },
           emote: (e) => { UI.showEmote(e); Net.send({ type: 'emote', e }); },
         });
       }
