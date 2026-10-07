@@ -113,7 +113,7 @@
   // ---------------------------------------------------------------- recursos
   function gainE(s, p, n) {
     const pl = s.players[p];
-    if (pl.turns <= 1) return 0; // no 1º turno de cada jogador só existe ⚡1: nenhum efeito dá energia extra
+    if (pl.turns <= 1 && p === s.first) return 0; // no 1º turno de quem começa só existe ⚡1: nenhum efeito dá energia extra (quem joga em 2º já tem ⚡2)
     const b = pl.energy;
     pl.energy = Math.min(G.ENERGY_MAX, pl.energy + n);
     const g = pl.energy - b;
@@ -1107,7 +1107,7 @@
   function canAttack(s, p, c) {
     const pl = s.players[p];
     if (s.turn < G.RULES.noAttackUntil) return false;
-    return pl.atk.includes(c) && !c.stunned && c.attackedT !== s.turn && c.movedT !== s.turn && (c.enteredT !== s.turn || c.canAtkT === s.turn || D(c).fx === 'ligeiro' || c.ligT === s.turn || evKey(s) === 'alvoroco');
+    return pl.atk.includes(c) && !c.stunned && c.attackedT !== s.turn && (c.movedT !== s.turn || c.ligT === s.turn || (c.enteredT === s.turn && (D(c).fx === 'ligeiro' || evKey(s) === 'alvoroco'))) && (c.enteredT !== s.turn || c.canAtkT === s.turn || D(c).fx === 'ligeiro' || c.ligT === s.turn || evKey(s) === 'alvoroco');
   }
   function attackTargets(s, p) {
     const o = s.players[opp(p)];
@@ -1302,7 +1302,7 @@
         const c = pl.hand.find((x) => x.uid === a.uid);
         if (!c || D(c).type !== 'sup') return err('Carta inválida.');
         if (pl.energy < supCost(s, p, c)) return err('Energia insuficiente.');
-        if (D(c).fx === 'cafezinho' && pl.turns <= 1) return err('No primeiro turno ninguém ganha energia extra: o Cafezinho não teria efeito.');
+        if (D(c).fx === 'cafezinho' && pl.turns <= 1 && p === s.first) return err('No primeiro turno de quem começa ninguém ganha energia extra: o Cafezinho não teria efeito.');
         playSup(s, p, c.uid);
         break;
       }
@@ -1419,7 +1419,7 @@
         if (pl.noReplay && pl.noReplay.uid === c.uid && pl.noReplay.t === s.turn) return;
         if (pl.energy < charCost(s, p, c)) return;
         ['atk', 'def', 'apoio'].forEach((z) => { if (space(s, p, z)) { if (all) freeSlots(s, p, z).forEach((k) => out.push({ t: 'playChar', uid: c.uid, zone: z, slot: k })); else out.push({ t: 'playChar', uid: c.uid, zone: z }); } });
-      } else if (pl.energy >= supCost(s, p, c) && !(D(c).fx === 'cafezinho' && pl.turns <= 1)) out.push({ t: 'playSup', uid: c.uid });
+      } else if (pl.energy >= supCost(s, p, c) && !(D(c).fx === 'cafezinho' && pl.turns <= 1 && p === s.first)) out.push({ t: 'playSup', uid: c.uid });
     });
     if (pl.hand.length < 7 && pl.buyT !== s.turn && pl.energy >= G.RULES.buyCost && (deckN(s, 'sup') || (s.players.some((x) => x.discard.some((c) => D(c).type === 'sup'))))) out.push({ t: 'buySup' });
     if (pl.cycleT !== s.turn && pl.energy >= G.RULES.cycleCost) pl.hand.forEach((c) => { if (D(c).type === 'char' ? deckN(s, 'char') : (deckN(s, 'sup') || (s.players.some((x) => x.discard.some((y) => D(y).type === 'sup'))))) out.push({ t: 'cycle', uid: c.uid }); });

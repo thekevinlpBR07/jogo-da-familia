@@ -6,7 +6,7 @@
   // raridade: b = Base, e = Especial, m = Mágica, l = Lendária
   const P = [
     [1, 'Kevin', 'o Engenheiro Mecânico', 2, 4, 4, 'b', 'healBoard', 'Ao Entrar: cure todo o dano dos seus Personagens.'],
-    [2, 'Kevin', 'Craque da Bola', 3, 6, 3, 'e', 'ligeiro', 'Ligeiro: pode atacar assim que entra em campo, mas no turno em que entra só ataca Personagens.', 0, true],
+    [2, 'Kevin', 'Craque da Bola', 3, 6, 3, 'e', 'ligeiro', 'Ligeiro: pode atacar assim que entra, mesmo depois de se mover (1 movimento por turno). No turno em que entra só ataca Personagens.', 0, true],
     [3, 'Kevin', 'Mestre da Engenharia Mística', 5, 5, 7, 'm', 'kevinMestre', '🤝 Uma vez por seu turno, quando jogar um Suporte, compre 1 Personagem, respeitando o limite da mão.'],
     [4, 'Kevin', 'Galã Montador de Dragões', 8, 8, 6, 'l', 'ping3', 'Ao Entrar: cause 3 de dano a 1 Personagem inimigo.'],
     [5, 'Evilyn', 'a Impaciente', 1, 4, 2, 'b', 'auraRightAtk', 'O Personagem à sua direita, em ⚔️, tem +1 de ataque.'],
@@ -14,7 +14,7 @@
     [7, 'Evilyn', 'Fada Antipet', 5, 7, 5, 'm', 'executor', 'Executor: +2 de ataque contra Personagens que já têm dano.'],
     [8, 'Evilyn', 'Rainha dos Baixinhos', 9, 7, 8, 'l', 'cureIfBehind', 'Ao Entrar: se tiver menos ❤️ que o adversário, cure todo o dano dos seus Personagens.'],
     [9, 'Rogerinho', 'o Empresário', 2, 5, 4, 'b', 'zeroEnergy', 'Ao jogar Rogerinho, se ficar com ⚡0, ganhe ⚡1.'],
-    [10, 'Rogerinho', 'Taxista das Madrugadas', 4, 6, 4, 'e', 'ligeiro', 'Ligeiro: pode atacar assim que entra em campo, mas no turno em que entra só ataca Personagens.'],
+    [10, 'Rogerinho', 'Taxista das Madrugadas', 4, 6, 4, 'e', 'ligeiro', 'Ligeiro: pode atacar assim que entra, mesmo depois de se mover (1 movimento por turno). No turno em que entra só ataca Personagens.'],
     [11, 'Rogerinho', 'o Vereador', 5, 5, 6, 'm', 'apoioDefResist', '🤝 Apoio: seus Defensores têm Resistente 1 (sofrem 1 de dano a menos em cada ataque).'],
     [12, 'Rogerinho', 'Rei dos Galos', 7, 9, 5, 'l', 'cure5Each', 'Ao Entrar: cada Personagem seu cura 5 de dano.'],
     [13, 'Claudineia', 'a Mãe', 2, 3, 6, 'b', 'heal1', 'Ao Entrar: recupere ❤️1.'],
@@ -34,7 +34,7 @@
     [27, 'Bruno', 'o Sofredor Vascaíno', 4, 4, 8, 'm', 'vanilla', 'Sem efeito especial.'],
     [28, 'Brunor', 'Mago da Série B', 9, 7, 7, 'l', 'pingAtk2', 'Ao Entrar: cause 2 de dano a cada Personagem inimigo em ⚔️.'],
     [29, 'Helso', 'o Tranquilo', 1, 3, 4, 'b', 'helsoTranquilo', 'Ao Entrar em 🛡️: se for seu único Defensor, ganhe ⚡1.'],
-    [30, 'Helso', 'Pé Descalibrado', 2, 6, 2, 'e', 'ligeiro', 'Ligeiro: pode atacar assim que entra em campo, mas no turno em que entra só ataca Personagens.'],
+    [30, 'Helso', 'Pé Descalibrado', 2, 6, 2, 'e', 'ligeiro', 'Ligeiro: pode atacar assim que entra, mesmo depois de se mover (1 movimento por turno). No turno em que entra só ataca Personagens.'],
     [31, 'Helso', 'Lançador Oficial da NASA', 6, 8, 4, 'm', 'executor', 'Executor: +2 de ataque contra Personagens que já têm dano.'],
     [32, 'Helso', 'Mestre do Coco', 9, 7, 8, 'l', 'helsoCoco', 'Ao Entrar: recupere ❤️1 e cure todo o dano dos seus Personagens.'],
     [33, 'Jones', 'o Galanteador', 2, 5, 4, 'b', 'nextSupRed', 'Ao Entrar: o próximo Suporte que você jogar neste turno custa ⚡1 a menos.'],
@@ -128,7 +128,7 @@
     [13, 'Fila do Churrasco', 'imm', 'filaChurrasco', 'Ao revelar: o jogador com menos Personagens em campo compra 1 Personagem, respeitando o limite da mão. Em caso de empate, ninguém compra.'],
     [14, 'Discussão Generalizada', 'cont', 'discussao', 'Enquanto estiver ativo, nenhum jogador pode recuperar ❤️.'],
     [15, 'Noite Tranquila', 'cont', 'noite', 'No início do turno de cada jogador, cada Personagem dele cura 2 de dano.'],
-    [16, 'Alvoroço', 'cont', 'alvoroco', 'Enquanto estiver ativo, todo Personagem pode atacar assim que entra em campo, mas no turno em que entra só ataca Personagens.'],
+    [16, 'Alvoroço', 'cont', 'alvoroco', 'Enquanto estiver ativo, todo Personagem pode atacar assim que entra em campo, mesmo depois de se mover, mas no turno em que entra só ataca Personagens.'],
     [17, 'Vô Deu Bronca!', 'cont', 'bronca', 'Ao revelar: cada jogador escolhe 1 Personagem adversário em ⚔️ e move-o para 🛡️, se houver espaço.'],
   ];
 
@@ -143,7 +143,7 @@
   P.forEach(([n, name, title, cost, atk, def, rar, fx, text, ecost, fla]) => {
     CARDS['p' + pad(n)] = {
       id: 'p' + pad(n), type: 'char', name, title, cost, atk, def, rarity: rar, rarityName: RAR[rar],
-      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=95'),
+      fx, text, ecost: ecost || 0, flamengo: !!fla, updated: UPD.has(n), img: abs('assets/cards/personagens/' + pad(n) + '.webp?v=97'),
       activatable: /^act/.test(fx),
     };
   });
@@ -153,13 +153,13 @@
     CARDS['s' + pad(n)] = {
       dur: DUR[fx] || 0,
       id: 's' + pad(n), type: 'sup', name, title: kind === 'imm' ? 'Imediato' : kind === 'perm' ? (DUR[fx] ? 'Perk' : 'Permanente') : 'Permanente - uso único',
-      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=95'),
+      cost, kind, fx, text, img: abs('assets/cards/suportes/' + pad(n) + '.webp?v=97'),
     };
   });
   E.forEach(([n, name, kind, fx, text]) => {
     CARDS['e' + pad(n)] = {
       id: 'e' + pad(n), type: 'ev', name, title: kind === 'imm' ? 'Evento Imediato' : 'Evento Contínuo',
-      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=95'),
+      kind, fx, text, img: abs('assets/cards/eventos/' + pad(n) + '.webp?v=97'),
     };
   });
 

@@ -31,7 +31,7 @@
     },
     {
       t: 'Preparação',
-      body: `<ul><li>Cada jogador começa com <b>25 de vida</b> (1 ❤️ nas cartas = 5 pontos). No <b>primeiro turno de cada um só existe ⚡1</b> e nenhum efeito dá energia extra.</li>
+      body: `<ul><li>Cada jogador começa com <b>25 de vida</b> (1 ❤️ nas cartas = 5 pontos). No <b>primeiro turno de quem começa só existe ⚡1</b> e nenhum efeito dá energia extra (quem joga em 2º tem ⚡2).</li>
         <li>Compre <b>4 Personagens</b> e <b>2 Suportes</b> — sem escolher nem devolver, todos <b>baratos (até ⚡3)</b>. Sua mão sempre tem <b>pelo menos 1 Personagem de custo ⚡1</b>.</li>
         <li><b>Só recebemos cartas que dá para jogar</b>: as compras seguem a sua energia (no turno 5, só vêm cartas de custo até ⚡5, quando houver). Cartas fortes chegam conforme a energia sobe.</li>
         <li>A partida começa <b>sem Evento</b>. O sorteio decide quem começa (as duas posições são equilibradas).</li>
@@ -69,14 +69,14 @@
         <li><b>Mover</b> um Personagem de Apoio para o Ataque (⚡1) → sobra ⚡0.</li>
         <li>Atacar com quem já estava pronto no Ataque e <b>encerrar</b>.</li></ol>
         <p>Cartas fortes custam mais (até <b>⚡10</b>): guardar a mão para o fim do jogo é normal, mas <b>energia não usada nunca acumula</b>.</p>
-        <p>💡 Mover custa ⚡1, só 1 vez por Personagem por turno, e <b>quem se moveu não ataca</b> naquele turno.</p>`,
+        <p>💡 Mover custa ⚡1, só 1 vez por Personagem por turno, e <b>quem se moveu não ataca</b> naquele turno (exceto Ligeiro).</p>`,
       vis: () => `<div class="flow"><div class="step"><span>⚡4</span><b>Início</b>energia cheia</div><span class="arrow">➜</span><div class="step"><span>⚡2</span><b>Personagem</b>custo 2</div><span class="arrow">➜</span><div class="step"><span>⚡1</span><b>Suporte</b>custo 1</div><span class="arrow">➜</span><div class="step"><span>⚡0</span><b>Mover</b>custo 1</div></div>`,
     },
     {
       t: 'Combate: ataque e contra-ataque',
       body: `<p>O atacante causa o seu <b>⚔️ Ataque</b> de dano. O alvo <b>contra-ataca</b> com o ⚔️ dele, ao mesmo tempo.</p>
-        <p>O dano <b>fica na carta</b> até ser curado por um efeito (o 💔 mostra a vida atual). Cartas <b>Ligeiro</b> atacam assim que entram (no turno em que entram, só contra Personagens). <b>Defensores sofrem 1 de dano a menos</b> em cada ataque. A carta <b>cai</b> quando o dano chega à sua <b>🛡️ Defesa</b>.</p>
-        <p>Um Personagem <b>recém-jogado não ataca</b> no mesmo turno (💤), e quem foi movido também não. Dá para <b>juntar ataques</b> para derrubar um alvo forte!</p>`,
+        <p>O dano <b>fica na carta</b> até ser curado por um efeito (o 💔 mostra a vida atual). Cartas <b>Ligeiro</b> atacam assim que entram, <b>mesmo depois de se mover</b> (1 movimento por turno); no turno em que entram, só contra Personagens. <b>Defensores sofrem 1 de dano a menos</b> em cada ataque. A carta <b>cai</b> quando o dano chega à sua <b>🛡️ Defesa</b>.</p>
+        <p>Um Personagem <b>recém-jogado não ataca</b> no mesmo turno (💤), e quem foi movido também não (exceto Ligeiro). Dá para <b>juntar ataques</b> para derrubar um alvo forte!</p>`,
       vis: () => `<div class="duel">
         <div class="duel-row"><span class="n" style="color:#9dffc6">⚔️7 → 🛡️5</span><span class="r">O alvo tem 5 de vida: <b>cai</b>.</span></div>
         <div class="duel-row"><span class="n" style="color:#ffd58a">⚔️4 → 🛡️9</span><span class="r">Fica com 5 de vida; <b>um segundo ataque</b> termina o serviço.</span></div>
