@@ -749,7 +749,7 @@ body.online .online-only { display: grid !important; }
 .card.damaged { box-shadow: 0 6px 16px rgba(0,0,0,.55), 0 0 0 2px rgba(255,80,80,.75), 0 0 14px rgba(255,60,60,.55); }
 .card.damaged img { filter: saturate(.78) brightness(.92) sepia(.15) hue-rotate(-12deg); }
 .card .dmgtag {
-  position: absolute; left: 50%; bottom: 40%; transform: translateX(-50%); z-index: 3; pointer-events: none;
+  position: absolute; left: 50%; bottom: 40%; transform: translateX(-50%); z-index: 6; pointer-events: none;
   font-family: var(--font-title); font-weight: 800; font-size: max(11px, calc(var(--cw) * 0.15)); white-space: nowrap;
   color: #fff; padding: 1px 7px; border-radius: 10px; background: linear-gradient(#e0343f, #8f1420); border: 1px solid #ffb4b8;
   box-shadow: 0 2px 6px rgba(0,0,0,.6); text-shadow: 0 1px 2px rgba(0,0,0,.7);
@@ -793,8 +793,8 @@ body.online .online-only { display: grid !important; }
 .chat-form input { flex: 1; min-width: 0; background: rgba(0,0,0,.4); color: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: inherit; }
 @media (max-width: 900px) { #chat-panel { right: 0; left: 0; bottom: 0; width: 100%; height: 55vh; border-radius: 16px 16px 0 0; } .set-row { grid-template-columns: 110px 1fr 40px; } }
 
-.card .modrib { position: absolute; left: 0; right: 0; top: 36%; display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; z-index: 4; }
-.card .modrib span { font-family: var(--font-title); font-weight: 900; font-size: max(10px, calc(var(--cw) * 0.13)); white-space: nowrap; max-width: 96%; padding: 0 6px; border-radius: 10px; color: #fff; background: linear-gradient(180deg, #2fbf5b, #137a36); border: 2px solid #b8ffcf; box-shadow: 0 0 10px rgba(60, 255, 120, .8); text-shadow: 0 1px 2px #000; }
+.card .modrib { position: absolute; left: 2%; right: 2%; top: 14%; display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px; pointer-events: none; z-index: 4; }
+.card .modrib span { font-family: var(--font-title); font-weight: 900; font-size: max(9px, calc(var(--cw) * 0.11)); white-space: nowrap; max-width: 96%; padding: 0 4px; border-radius: 10px; color: #fff; background: linear-gradient(180deg, #2fbf5b, #137a36); border: 2px solid #b8ffcf; box-shadow: 0 0 10px rgba(60, 255, 120, .8); text-shadow: 0 1px 2px #000; }
 .card .modrib span.down { background: linear-gradient(180deg, #3d8fe0, #1a4f93); border-color: #bfe0ff; box-shadow: 0 0 10px rgba(90, 170, 255, .8); }
 .card.buffed { outline: 3px solid #4cff8a; outline-offset: -1px; animation: buffglow 1.6s ease-in-out infinite; }
 .card.shielded { outline: 3px solid #5aaaff; outline-offset: -1px; animation: shieldglow 1.6s ease-in-out infinite; }
@@ -803,3 +803,9 @@ body.online .online-only { display: grid !important; }
 
 .card.swap-target { outline: 3px dashed #ffd84a; outline-offset: -2px; animation: buffglow 1s ease-in-out infinite; cursor: pointer; }
 .slot[data-slot]::before { content: ''; }
+
+#pressure-chip { position: fixed; z-index: 30; right: 12px; top: 62px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 280px; pointer-events: none; font-family: var(--font-title); font-size: 12px; font-weight: 800; }
+#pressure-chip span { background: rgba(8, 10, 28, .82); border: 1px solid var(--line); border-radius: 12px; padding: 1px 9px; color: var(--muted, #cbd); }
+#pressure-chip.hot span:nth-child(2) { color: #ffb347; border-color: #ff8a3d; box-shadow: 0 0 10px rgba(255, 138, 61, .6); }
+#pressure-chip.hot span:nth-child(3) { color: #ff8f8f; border-color: #ff6a6a; }
+@media (max-width: 900px) { #pressure-chip { right: auto; left: 50%; transform: translateX(-50%); top: 2px; font-size: 10px; justify-content: center; } }

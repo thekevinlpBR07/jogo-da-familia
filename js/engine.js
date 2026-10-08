@@ -19,17 +19,19 @@
     defCounter: 0,       // (teste) bônus de contra-ataque dos Defensores
     noAttackUntil: 0,    // (teste) ninguém ataca antes deste turno global
     turnOrder: 'normal', // ordem dos turnos: 'normal' (A B A B) | 'snake' (A B B A A B B A) | 'tm' (Thue-Morse)
-    fatigueTurn: 80,     // a partir deste turno (global) quem abre o turno perde Vida (evita partidas eternas); 0 = desligado
-    fatigueDmg: 3,
+    fatigueTurn: 30,     // a partir deste turno (global) quem abre o turno perde Vida (evita partidas eternas); 0 = desligado
+    fatigueDmg: 2,
     supDrawEvery: 2,     // compra automática de 1 Suporte a cada N turnos do próprio jogador (0 = desligado)
     lifeStart: 25,       // pontos de vida de cada herói
     heartPts: 5,         // 1 ❤️ impresso nas cartas = 5 pontos de vida ("recupere ❤️1" cura 5)
     moveCost: 1,         // mover um Personagem custa ⚡ (1x por Personagem por turno)
     buyCost: 1,
     energyMax: 10,       // teto da energia por turno
-    secondEnergyTurns: 5, // quem joga em 2º tem ⚡+1 nos primeiros N turnos dele (equilibra a vantagem de começar)
+    secondEnergyTurns: 3, // quem joga em 2º tem ⚡+1 nos primeiros N turnos dele (equilibra a vantagem de começar)
     secondEnergy: 0,     // (teste) energia extra de quem joga em 2º (ele começa com ⚡1+N e sobe 1 por turno)
     secondLife: 0,       // (teste) pontos de vida extras de quem joga em 2º
+    rageFrom: 20,        // Fúria: a partir deste turno (global) todos os ataques ganham +1, e +1 a cada rageEvery turnos (0 = desligada)
+    rageEvery: 10,
     defResist: 1,        // todo Defensor (🛡️) sofre N de dano a menos em cada ataque (mínimo 1)
     swapCost: 2,         // trocar 2 Personagens seus de lugar custa ⚡ (1x por turno)
     cycleCost: 1,        // descartar 1 carta da mão e comprar 1 do mesmo tipo (1x por turno)          // comprar 1 Suporte custa ⚡
@@ -503,8 +505,13 @@
       if (c.stunned && c.stunT < s.turn && D(c).fx === 'earlyRecover') unstun(s, c);
     });
     if (G.RULES.catchupHeal && pl.life < s.players[opp(p)].life) heal(s, p, G.RULES.catchupHeal);
+    if (G.RULES.rageFrom && s.turn >= G.RULES.rageFrom && (s.turn - G.RULES.rageFrom) % G.RULES.rageEvery === 0) {
+      const lv = rage(s);
+      log(s, lv === 1 ? '🔥 Fúria! A partida esquentou: todos os Personagens têm +1 de ataque.' : `🔥 Fúria sobe! Todos os Personagens têm +${lv} de ataque.`, 'event');
+      fx(s, { t: 'rage', n: lv });
+    }
     if (G.RULES.fatigueTurn && s.turn >= G.RULES.fatigueTurn) {
-      log(s, `⏳ Cansaço: a partida se arrasta (turno ${s.turn}).`, 'warn');
+      log(s, s.turn === G.RULES.fatigueTurn ? `⏳ Cansaço! A partir de agora, quem abre o turno perde ${G.RULES.fatigueDmg} de vida.` : `⏳ Cansaço: a partida se arrasta (turno ${s.turn}).`, 'warn');
       loseLife(s, p, G.RULES.fatigueDmg, 'Cansaço');
       if (s.winner != null) return;
     }
@@ -1152,8 +1159,9 @@
     }
     return n;
   }
+  const rage = (s) => (G.RULES.rageFrom && s.turn >= G.RULES.rageFrom ? 1 + Math.floor((s.turn - G.RULES.rageFrom) / G.RULES.rageEvery) : 0);
   function effAtk(s, p, c) {
-    return D(c).atk + (hasPerm(s, p, 'torcida') ? 1 : 0) + (c.bonusT === s.turn ? 3 : 0) + (evKey(s) === 'jogoDecisivo' && s.players[p].atk.includes(c) ? 1 : 0) + auraAtk(s, p, c);
+    return D(c).atk + rage(s) + (hasPerm(s, p, 'torcida') ? 1 : 0) + (c.bonusT === s.turn ? 3 : 0) + (evKey(s) === 'jogoDecisivo' && s.players[p].atk.includes(c) ? 1 : 0) + auraAtk(s, p, c);
   }
   // dano a menos que a carta sofre em cada ataque (Resistente, Sofá, auras)
   function incomingRed(s, o, T) {
@@ -1199,7 +1207,7 @@
     const challenge = O.atk.includes(T);
     let a = effAtk(s, p, A) + (D(A).fx === 'executor' && T.dmg > 0 ? 2 : 0); // Executor: +2 contra quem já tem dano
     a = Math.max(1, a - incomingRed(s, o, T)); // Resistente / Sofá / auras
-    const t = D(T).atk + auraAtk(s, o, T) + (D(T).fx === 'quebraManta' && challenge ? 2 : 0) + (O.def.includes(T) ? G.RULES.defCounter : 0) + (evKey(s) === 'jogoDecisivo' && O.atk.includes(T) ? 1 : 0); // contra-ataque
+    const t = D(T).atk + rage(s) + auraAtk(s, o, T) + (D(T).fx === 'quebraManta' && challenge ? 2 : 0) + (O.def.includes(T) ? G.RULES.defCounter : 0) + (evKey(s) === 'jogoDecisivo' && O.atk.includes(T) ? 1 : 0); // contra-ataque
     fx(s, { t: 'attack', uid: A.uid, target: T.uid, a, d: t });
     log(s, `⚔️ ${nm(A)} (${a} de ataque) ${challenge ? 'desafiou' : 'atacou'} ${nm(T)}, que contra-atacou com ${t}.`);
     const lastDef = !challenge && O.def.length === 1;

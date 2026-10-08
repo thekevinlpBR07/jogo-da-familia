@@ -58,7 +58,7 @@
         <li><b>JOGUE</b> o que quiser com a sua energia: Personagens, Suportes, mover (⚡1), habilidades Ativáveis e comprar Suporte (⚡1). <b>Sem limite de cartas</b>, só de energia!</li>
         <li><b>ATAQUE</b> com cada Personagem pronto.</li>
         <li><b>ENCERRE</b> o turno — ou <b>pule</b> se não tiver nada para jogar (o botão vira "Pular turno").</li></ol>
-        <p>⚡ <b>Energia que recarrega:</b> turno 1 = ⚡1, turno 2 = ⚡2... até ⚡10. Enche todo turno, e <b>o que sobrar se perde</b> — então vale gastar! Quem joga em <b>2º</b> tem ⚡+1 nos 5 primeiros turnos.</p>`,
+        <p>⚡ <b>Energia que recarrega:</b> turno 1 = ⚡1, turno 2 = ⚡2... até ⚡10. Enche todo turno, e <b>o que sobrar se perde</b> — então vale gastar! Quem joga em <b>2º</b> tem ⚡+1 nos 3 primeiros turnos.</p>`,
       vis: () => `<div class="flow"><div class="step"><span>⚡1</span><b>Turno 1</b>1 de energia</div><span class="arrow">⬇</span><div class="step"><span>⚡5</span><b>Turno 5</b>5 de energia</div><span class="arrow">⬇</span><div class="step"><span>⚡10</span><b>Turno 10+</b>sempre 10</div></div>`,
     },
     {

@@ -419,9 +419,33 @@
   }
 
   // ================================================================ render
+  // Fúria e Cansaço: chip fixo com o turno e o aviso quando começam
+  let prevTurn = 0;
+  function renderPressure() {
+    const R = G.RULES;
+    let chip = $('#pressure-chip');
+    if (!chip) { chip = document.createElement('div'); chip.id = 'pressure-chip'; document.body.appendChild(chip); }
+    const t = V.turn, parts = [`Turno ${t}`];
+    if (R.rageFrom) {
+      if (t >= R.rageFrom) parts.push(`🔥 Fúria +${1 + Math.floor((t - R.rageFrom) / R.rageEvery)}`);
+      else if (R.rageFrom - t <= 6) parts.push(`🔥 Fúria no turno ${R.rageFrom}`);
+    }
+    if (R.fatigueTurn) {
+      if (t >= R.fatigueTurn) parts.push(`⏳ Cansaço −${R.fatigueDmg}/turno`);
+      else if (R.fatigueTurn - t <= 6) parts.push(`⏳ Cansaço no turno ${R.fatigueTurn}`);
+    }
+    chip.innerHTML = parts.map((x) => `<span>${x}</span>`).join('');
+    chip.classList.toggle('hot', R.rageFrom && t >= R.rageFrom);
+    if (t < prevTurn) prevTurn = 0;
+    if (R.rageFrom && prevTurn < R.rageFrom && t >= R.rageFrom) UI.toast('🔥 <b>Fúria!</b> Todos os Personagens ganham +1 de ataque (e +1 a cada 10 turnos).', '', 5000);
+    else if (R.rageFrom && t > R.rageFrom && Math.floor((t - R.rageFrom) / R.rageEvery) > Math.floor((prevTurn - R.rageFrom) / R.rageEvery) && prevTurn >= R.rageFrom) UI.toast(`🔥 <b>Fúria sobe!</b> +${1 + Math.floor((t - R.rageFrom) / R.rageEvery)} de ataque em todos.`, '', 4000);
+    if (R.fatigueTurn && prevTurn < R.fatigueTurn && t >= R.fatigueTurn) UI.toast(`⏳ <b>Cansaço!</b> Quem abre o turno perde ${R.fatigueDmg} de vida.`, 'err', 5000);
+    prevTurn = t;
+  }
   function render() {
     if (!V) return;
     const L = legalNow();
+    renderPressure();
     renderPlate(0); renderPlate(1);
     renderEvent();
     renderEventBig();
@@ -1204,7 +1228,7 @@
     const m = UI.modal(`<h3>Regras rápidas</h3><div class="rules-doc">
       <h4>Objetivo</h4><p>Reduza a vida do adversário de <b>25 para 0</b>. (Nas cartas, 1 ❤️ = 5 pontos de vida: "recupere ❤️1" cura 5.)</p>
       <h4>Início</h4><p>Cada jogador começa com 25 de vida, 4 Personagens e 2 Suportes na mão (ninguém escolhe nem devolve cartas), todos baratos: custo até ⚡3. A partida começa sem Evento. Quem começa não compra no primeiro turno. No <b>primeiro turno de quem começa só existe ⚡1</b> e nenhum efeito dá energia extra (quem joga em 2º tem ⚡2 e pode ganhar energia por efeitos). Todo mundo começa com <b>pelo menos 2 Personagens de custo ⚡1</b> para jogar no primeiro turno. <b>As cartas vêm embaralhadas, mas só chegam cartas de até ⚡2 acima da sua energia:</b> cada carta comprada é a primeira do baralho cujo custo é no máximo a sua energia do turno + 2 (na mão inicial: até ⚡3). As caras só chegam quando você já está perto de poder jogá-las.</p>
-      <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡10</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 10. <b>Quem joga em 2º tem ⚡+1 nos 5 primeiros turnos</b> dele (⚡2, ⚡3, ⚡4, ⚡5 e ⚡6), para compensar a vantagem de começar.</p>
+      <h4>Energia ⚡</h4><p>No 1º turno você tem <b>⚡1</b>, no 2º <b>⚡2</b>, e assim por diante até <b>⚡10</b>. A energia <b>enche de novo todo turno</b>; o que sobrar se perde. Gastando energia você joga <b>quantas cartas quiser</b>. Energia extra de efeitos vale só no turno e nunca passa de 10. <b>Quem joga em 2º tem ⚡+1 nos 3 primeiros turnos</b> dele (⚡2, ⚡3 e ⚡4), para compensar a vantagem de começar.</p>
       <h4>Campo</h4><table><tr><th>Zona</th><th>Limite</th><th>Função</th></tr>
       <tr><td>⚔️ Ataque</td><td>3</td><td>Podem atacar (a partir do turno seguinte ao que entraram, exceto Ligeiros).</td></tr>
       <tr><td>🛡️ Defesa</td><td>3</td><td>Protegem a sua vida: enquanto existir um Defensor, o herói não pode ser atacado. <b>Todo Defensor sofre 1 de dano a menos</b> em cada ataque (mínimo 1).</td></tr>
@@ -1221,7 +1245,7 @@
       <h4>Limites</h4><p>Mão: 7 cartas · Energia: ⚡10 · Vida: 25 · Custo mínimo: ⚡1 · Descontos não se acumulam.</p>
       <h4>Eventos</h4><p>No máximo 1 Evento fica ativo e ele <b>troca sozinho a cada 3 rodadas</b> (o primeiro entra no fim da 3ª). Ninguém compra nem troca Eventos.</p>
       <h4>Série (melhor de 2 seguidas)</h4><p>Uma série é formada por várias partidas: <b>quem vencer 2 partidas seguidas leva a série</b>. A cada partida os lados trocam: quem começou agora joga em segundo, e vice-versa. Se cada um vencer uma, joga-se a próxima, até alguém vencer duas em sequência.</p>
-      <h4>Cansaço</h4><p>Se a partida passar do <b>turno 80</b> (cerca de 40 rodadas), quem começa o turno perde <b>3 de vida</b> — assim nenhum empate dura para sempre.</p>
+      <h4>Fúria e Cansaço</h4><p>Para a partida não se arrastar: a partir do <b>turno 20</b> (cerca de 10 rodadas) todos os Personagens ganham <b>🔥 +1 de ataque</b>, e mais <b>+1 a cada 10 turnos</b>. A partir do <b>turno 30</b> (cerca de 15 rodadas), quem começa o turno perde <b>2 de vida</b> (⏳ Cansaço). Valem para os dois jogadores.</p>
       <h4>Regra de ouro</h4><p>Se o texto de uma carta contrariar uma regra, vale o que a carta diz.</p>
     </div><div class="btns" style="margin-top:14px"><button class="btn gold" data-x>Fechar</button></div>`);
     $('[data-x]', m).onclick = () => m.close();
